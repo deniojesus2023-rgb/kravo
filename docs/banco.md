@@ -21,3 +21,11 @@ Migrações em `supabase/migrations/`, aplicadas em ordem. Testadas num Postgres
 ## Ainda não coberto
 
 Aplicação num projeto real, Auth na interface, troca de `lib/data/sample` por leitura do banco, jobs de sincronização.
+
+## Autenticação (Fase 2, etapa 2)
+
+- E-mail e senha, link de acesso (sem criar conta por ele) e cadastro, com `@supabase/ssr`. Páginas `/login` e `/cadastro`, callback em `/auth/callback`, saída pelo botão "Sair" da sidebar.
+- `proxy.ts` renova a sessão e redireciona para `/login?next=…` quem não está logado. Sem as variáveis do Supabase ele não faz nada (modo dados de exemplo).
+- Só a URL e a chave publicável vão para o navegador. O destino pós-login (`next`) só aceita caminho interno.
+- **Ainda não testado contra o projeto real**: a rede da sessão bloqueia o host do Supabase. Os testes cobrem proteção de rotas, validação e acessibilidade; o teste de credenciais (`E2E_AUTH_NETWORK=1`) fica pendente.
+- Não implementado: recuperação de senha, e-mails de confirmação personalizados, URLs de redirecionamento no painel do Supabase (`/auth/callback`).

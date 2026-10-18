@@ -8,12 +8,15 @@ import { SampleDataTag } from '@/components/ui/SampleDataTag';
 import { formatRoas } from '@/lib/format';
 import { ACTION_LABELS, type OfferAction } from '@/lib/rules';
 import { cn } from '@/lib/cn';
+import { signOut } from '@/app/(auth)/actions';
 import type { ConnectionStatus } from '@/lib/data';
 
 export interface SidebarData {
   offers: Array<{ id: string; name: string; roas: number | null; action: OfferAction }>;
   meta: { status: ConnectionStatus; delayMinutes: number };
   isSample: boolean;
+  /** Usuário logado. `null` quando a autenticação não está configurada. */
+  user: { email: string } | null;
 }
 
 const META_LABEL: Record<ConnectionStatus, string> = {
@@ -57,7 +60,7 @@ const itemClass = (active: boolean) =>
     active ? 'bg-nav-active text-fg' : 'text-fg-muted hover:bg-nav-hover hover:text-fg',
   );
 
-export function SidebarContent({ offers, meta, isSample }: SidebarData) {
+export function SidebarContent({ offers, meta, isSample, user }: SidebarData) {
   const pathname = usePathname();
 
   return (
@@ -121,6 +124,19 @@ export function SidebarContent({ offers, meta, isSample }: SidebarData) {
           </span>
         )}
       </div>
+
+      {user && (
+        <div className="flex items-center justify-between gap-2 px-1">
+          <span className="min-w-0 truncate text-xs text-fg-muted" title={user.email}>
+            {user.email}
+          </span>
+          <form action={signOut}>
+            <button type="submit" className="h-7 rounded-md border border-line px-2.5 text-xs text-fg-muted hover:text-fg">
+              Sair
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

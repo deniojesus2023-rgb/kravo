@@ -9,6 +9,8 @@ const PAGES = [
   '/ofertas/receitas-fit-7-dias',
   '/integracoes',
   '/ofertas/protocolo-vasos-livres/criativos',
+  '/login',
+  '/cadastro',
 ];
 
 // Paleta oficial + neutros derivados registrados em app/globals.css.
