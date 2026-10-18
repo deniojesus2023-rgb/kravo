@@ -1,0 +1,102 @@
+@import 'tailwindcss';
+
+/*
+ * Tokens de design da kavro (brand/manual-de-marca.txt, seção 3 e 4).
+ * A paleta padrão do Tailwind é removida: só existem as cores abaixo.
+ * Os tons neutros "derivados" vêm das telas em design/screens/ e servem
+ * apenas para superfícies, linhas e texto de apoio.
+ */
+@theme {
+  --color-*: initial;
+
+  /* Paleta oficial */
+  --color-canvas: #0f1114;
+  --color-surface: #1a1e23;
+  --color-line: #272d33;
+  --color-line-strong: #30353b;
+  --color-brand: #c8f169;
+  --color-fg: #f5f7f8;
+  --color-fg-muted: #a7adb5;
+  --color-profit: #34c78a;
+  --color-loss: #f16d75;
+  --color-warn: #e8b75b;
+
+  /* Neutros derivados do design */
+  --color-fg-subtle: #8a9099; /* rótulos, notas, cabeçalhos de tabela */
+  --color-surface-sunken: #15191e; /* fundo de controles e linha de total */
+  --color-surface-hover: #1f242a; /* linha de tabela em hover */
+  --color-surface-raised: #1e242a; /* chip/badge neutro */
+  --color-nav-hover: #171b20;
+  --color-nav-active: #1c2127;
+  --color-line-faint: #1c2127; /* divisórias de linha e da sidebar */
+  --color-state-neutral: #6b737d; /* ponto do estado Manter */
+  --color-state-dashed: #4a525b; /* borda tracejada de Dados insuficientes */
+  --color-brand-hover: #d6f788;
+
+  --font-sans: var(--font-geist-sans), Inter, Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-card: 8px;
+}
+
+@layer base {
+  html {
+    background: var(--color-canvas);
+    color-scheme: dark;
+  }
+  body {
+    margin: 0;
+    background: var(--color-canvas);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  button {
+    font-family: inherit;
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+}
+
+/* Valores, ROAS, CPA, datas e métricas: Geist Mono com numerais tabulares. */
+@utility num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@utility card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* Link que cobre a linha inteira da tabela; o foco aparece na linha. */
+.row-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.row-link:focus-visible {
+  outline: none;
+}
+.row-link:focus-visible::after {
+  outline: 2px solid var(--color-brand);
+  outline-offset: -2px;
+}
