@@ -31,13 +31,21 @@ export function redactMessage(message: string, secrets: string[]): string {
   return out.length > 300 ? `${out.slice(0, 300)}…` : out;
 }
 
+/**
+ * Campos que a kavro pede à Graph API. O login só tem `ads_read`, então nenhum campo pode exigir outra
+ * permissão. Em especial, `business` (nome do Business Manager) exige `business_management` e fica de fora.
+ * Há um teste que impede a volta de campos fora desta lista.
+ */
+export const AD_ACCOUNT_FIELDS = ['id', 'account_id', 'name', 'currency', 'account_status', 'timezone_name'] as const;
+/** `id` vale sempre; `name` depende de `public_profile`, então é tentado à parte e é opcional. */
+export const PROFILE_FIELDS = { required: 'id', optional: 'name' } as const;
+
 export interface AdAccountInfo {
   id: string; // act_123
   name: string;
   currency: string | null;
   timezoneName: string | null;
   accountStatus: number | null;
-  businessName: string | null;
 }
 
 export interface TokenInfo {
@@ -130,8 +138,10 @@ export function createGraph(env: MetaEnv, fetcher: FetchLike = fetch as FetchLik
     },
 
     async profile(token: string): Promise<{ id: string; name: string | null }> {
-      const r = await call<{ id: string; name?: string }>('/me', { fields: 'id,name' }, token);
-      return { id: r.id, name: r.name ?? null };
+      const me = await call<{ id: string }>('/me', { fields: PROFILE_FIELDS.required }, token);
+      // O nome só vem com public_profile. Sem ela, a conexão continua valendo, apenas sem o nome.
+      const named = await call<{ name?: string }>('/me', { fields: PROFILE_FIELDS.optional }, token).catch(() => ({}) as { name?: string });
+      return { id: me.id, name: named.name ?? null };
     },
 
     /** Permissões efetivamente concedidas (o usuário pode negar algumas). */
@@ -143,7 +153,7 @@ export function createGraph(env: MetaEnv, fetcher: FetchLike = fetch as FetchLik
     async adAccounts(token: string): Promise<AdAccountInfo[]> {
       const out: AdAccountInfo[] = [];
       let params: Record<string, string> | null = {
-        fields: 'account_id,name,currency,timezone_name,account_status,business{name}',
+        fields: AD_ACCOUNT_FIELDS.join(','),
         limit: '100',
       };
       let path = '/me/adaccounts';
@@ -157,7 +167,6 @@ export function createGraph(env: MetaEnv, fetcher: FetchLike = fetch as FetchLik
             currency: a.currency ?? null,
             timezoneName: a.timezone_name ?? null,
             accountStatus: typeof a.account_status === 'number' ? a.account_status : null,
-            businessName: a.business?.name ?? null,
           });
         }
         const after = r.paging?.next ? r.paging.cursors?.after : undefined;
