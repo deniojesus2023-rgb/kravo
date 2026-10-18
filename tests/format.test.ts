@@ -44,3 +44,11 @@ describe('formatação pt-BR', () => {
     expect(formatUpdatedAt('2026-10-17T23:40:00-03:00', now)).toBe('17 out às 23:40');
   });
 });
+
+describe('formatDateShort', () => {
+  it('usa o dia civil de São Paulo', async () => {
+    const { formatDateShort } = await import('@/lib/format');
+    expect(formatDateShort('2026-11-28T15:00:00Z')).toBe('28 nov 2026');
+    expect(formatDateShort('2026-11-29T02:30:00Z')).toBe('28 nov 2026'); // 23:30 em SP
+  });
+});

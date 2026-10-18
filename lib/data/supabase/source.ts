@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DataSource } from '../source';
 import { computeDeltas, type PeriodTotals } from '../deltas';
 import { periodRange, saoPauloDate } from '../dates';
+import { deriveConnectionStatus } from '@/lib/meta/oauth';
 import type { Alert, ConnectionStatus, Offer, SyncRun } from '../types';
 import {
   assembleOfferPeriodData,
@@ -56,9 +57,14 @@ export function supabaseSource(supabase: SupabaseClient): DataSource {
   }
 
   async function metaConnection() {
-    const { data, error } = await supabase.from('meta_connections').select('status').order('created_at', { ascending: false }).limit(1);
+    const { data, error } = await supabase
+      .from('meta_connections')
+      .select('status, expires_at')
+      .order('created_at', { ascending: false })
+      .limit(1);
     if (error) throw new Error(`Falha ao ler meta_connections: ${error.message}`);
-    const status: ConnectionStatus = (data?.[0]?.status as ConnectionStatus | undefined) ?? 'nao_conectado';
+    // Expirando (menos de 7 dias) e expirado saem da data de validade, não só da coluna status.
+    const status: ConnectionStatus = deriveConnectionStatus(data?.[0] ?? null, new Date());
     return { status, lastSync: status === 'nao_conectado' ? null : await lastSync() };
   }
 
