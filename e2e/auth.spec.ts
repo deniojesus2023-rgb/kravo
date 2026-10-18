@@ -30,6 +30,19 @@ test.describe('rotas protegidas', () => {
     await expect(page.locator('main [role="alert"]')).toContainText('inválido ou expirou');
   });
 
+  for (const [path, heading] of [
+    ['/privacidade', 'Política de privacidade'],
+    ['/termos', 'Termos de serviço'],
+    ['/exclusao-de-dados', 'Exclusão de dados'],
+  ] as const) {
+    test(`${path} é pública (a Meta precisa abrir sem login)`, async ({ page }) => {
+      const response = await page.goto(path);
+      expect(response?.status()).toBe(200);
+      await expect(page).toHaveURL(new RegExp(`${path}$`));
+      await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
+    });
+  }
+
   test('nenhum dado de oferta vaza antes do login', async ({ request }) => {
     const response = await request.get('/ofertas/protocolo-vasos-livres', { maxRedirects: 0 });
     expect(response.status()).toBe(307);

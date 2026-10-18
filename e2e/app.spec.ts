@@ -12,6 +12,9 @@ const PAGES = [
   '/login',
   '/cadastro',
   '/ofertas/nova',
+  '/privacidade',
+  '/termos',
+  '/exclusao-de-dados',
 ];
 
 // Paleta oficial + neutros derivados registrados em app/globals.css.

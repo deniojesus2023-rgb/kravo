@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Logo } from '@/components/ui/Logo';
 
@@ -9,6 +10,14 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <p className="m-0 text-[13px] text-fg-muted">Cada oferta. Uma decisão.</p>
       </div>
       {children}
+      <p className="m-0 flex gap-4 text-xs text-fg-subtle">
+        <Link href="/privacidade" className="underline underline-offset-2 hover:text-fg-muted">
+          Privacidade
+        </Link>
+        <Link href="/termos" className="underline underline-offset-2 hover:text-fg-muted">
+          Termos
+        </Link>
+      </p>
     </main>
   );
 }
