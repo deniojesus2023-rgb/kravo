@@ -184,4 +184,18 @@ test.describe('integração com o Meta (sem chaves do app neste ambiente)', () =
     await page.goto('/integracoes');
     await expect(page.getByText('Não conectado').first()).toBeVisible();
   });
+
+  test('falha mostra etapa e código da Meta, e ignora parâmetros forjados', async ({ page }) => {
+    await login(page);
+    await page.goto('/integracoes?meta=meta&etapa=troca_do_codigo&codigo=100&http=400');
+    await expect(page.locator('main [role="alert"]')).toContainText('A Meta recusou a conexão');
+    await expect(page.locator('main [role="alert"]')).toContainText(
+      'Detalhe técnico: etapa: troca do código do login por um token · código da Meta: 100 · status HTTP: 400.',
+    );
+    await page.goto('/integracoes?meta=meta&etapa=%3Cb%3Ex%3C%2Fb%3E&codigo=12ab&http=99999');
+    await expect(page.locator('main [role="alert"]')).not.toContainText('Detalhe técnico');
+    // Mensagens de sucesso nunca mostram detalhe técnico.
+    await page.goto('/integracoes?meta=desconectado&etapa=troca_do_codigo&codigo=100');
+    await expect(page.locator('main [role="status"]')).not.toContainText('Detalhe técnico');
+  });
 });

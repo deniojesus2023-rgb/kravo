@@ -240,3 +240,25 @@ describe('conclusão da conexão', () => {
     expect(JSON.stringify(result)).not.toContain('sk-segredo-123'); // o token nunca entra no diagnóstico
   });
 });
+
+import { describeDiagnostic, diagnosticParams } from '@/lib/meta/diagnostic';
+
+describe('detalhe técnico na tela', () => {
+  it('só leva listas fixas e números pela URL', () => {
+    expect(diagnosticParams({ step: 'troca_do_codigo', code: 100, status: 400 })).toEqual({ etapa: 'troca_do_codigo', codigo: '100', http: '400' });
+    expect(diagnosticParams({ step: '<script>alert(1)</script>', code: null, status: 0 })).toEqual({ http: '0' });
+    expect(diagnosticParams({ detail: 'falha ao gravar credencial' })).toEqual({ salvar: 'credencial' });
+    expect(diagnosticParams({ detail: 'TOKEN_ENCRYPTION_KEY inválida: precisa ser uma chave de 32 bytes em base64.' })).toEqual({ salvar: 'chave' });
+    expect(diagnosticParams({ detail: 'algo com EAAB-token' })).toEqual({});
+    expect(diagnosticParams(undefined)).toEqual({});
+  });
+
+  it('descreve em português e ignora valores forjados', () => {
+    expect(describeDiagnostic({ etapa: 'troca_do_codigo', codigo: '100', http: '400' })).toBe(
+      'etapa: troca do código do login por um token · código da Meta: 100 · status HTTP: 400',
+    );
+    expect(describeDiagnostic({ http: '0' })).toBe('sem resposta da Meta');
+    expect(describeDiagnostic({ etapa: 'qualquer coisa', codigo: '12ab', http: '99999', salvar: 'x' })).toBeNull();
+    expect(describeDiagnostic({})).toBeNull();
+  });
+});

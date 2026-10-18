@@ -3,6 +3,7 @@ import { AdAccountList } from '@/components/integrations/AdAccountList';
 import { SampleDataTag } from '@/components/ui/SampleDataTag';
 import { formatDateShort, formatUpdatedAt } from '@/lib/format';
 import { getContext, getMetaConnection } from '@/lib/data';
+import { describeDiagnostic } from '@/lib/meta/diagnostic';
 import { readMetaIntegration, type MetaIntegration } from '@/lib/meta/read';
 import { createClient } from '@/lib/supabase/server';
 import { cn } from '@/lib/cn';
@@ -38,8 +39,14 @@ const PLATFORMS = [
 const btn = 'inline-flex h-9 items-center rounded-lg border border-line-strong px-4 text-[13.5px] font-medium hover:bg-surface-hover';
 const row = 'flex justify-between gap-4 border-t border-line py-2.5 text-[13px]';
 
-export default async function IntegrationsPage({ searchParams }: { searchParams: Promise<{ meta?: string }> }) {
-  const message = MESSAGES[(await searchParams).meta ?? ''];
+export default async function IntegrationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ meta?: string; etapa?: string; codigo?: string; http?: string; salvar?: string }>;
+}) {
+  const query = await searchParams;
+  const message = MESSAGES[query.meta ?? ''];
+  const detail = message?.tone === 'erro' ? describeDiagnostic(query) : null;
   const [context, connection, supabase] = await Promise.all([getContext(), getMetaConnection(), createClient()]);
   const meta = supabase ? await readMetaIntegration(supabase) : null;
   const status = STATUS[meta?.status ?? 'nao_conectado'];
@@ -64,6 +71,7 @@ export default async function IntegrationsPage({ searchParams }: { searchParams:
           )}
         >
           {message.text}
+          {detail && <span className="mt-1 block text-xs text-fg-muted">Detalhe técnico: {detail}.</span>}
         </p>
       )}
 
