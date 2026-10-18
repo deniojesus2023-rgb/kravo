@@ -10,7 +10,7 @@ Personalidade: técnica, objetiva, precisa, confiável, direta, sem exageros. N�
 ## Estado atual
 
 - **Fase 1 (front-end com dados de exemplo)** concluída: Next.js + Tailwind v4, camada de dados de exemplo em `lib/data/`, regras puras e testadas em `lib/rules/`.
-- **Fase 2 (Auth e banco)** em andamento: esquema, RLS e views aplicados ao projeto Supabase `kravo`, com isolamento verificado no banco real. Login, cadastro e proteção de rotas implementados. Com a autenticação configurada, as telas leem o banco do usuário e `/ofertas/nova` cria ofertas; **esse fluxo logado ainda não foi verificado de ponta a ponta com dados reais** (falta um usuário de teste, ver `docs/banco.md`). Sem a autenticação, o app mostra dados de exemplo. Nenhuma integração (Meta, vendas) foi implementada, então métricas e vendas reais ainda não existem.
+- **Fase 2 (Auth e banco)** praticamente concluída: esquema, RLS e views aplicados ao projeto Supabase `kravo`; login, cadastro e proteção de rotas; com a autenticação configurada as telas leem o banco do usuário e `/ofertas/nova` cria ofertas. Isolamento e fluxo logado verificados de ponta a ponta no banco real (ver `docs/banco.md`). **Não verificados**: cadastro com e-mail de confirmação e link de acesso. Sem a autenticação, o app mostra dados de exemplo. Nenhuma integração (Meta, vendas) foi implementada, então métricas e vendas reais ainda não existem.
 - Os números das telas em `design/screens/` são **dados de exemplo**. Não os trate como reais.
 - Nunca declare uma integração como concluída sem autenticação real e teste com dados reais.
 - Antes de implementar qualquer tela, leia o arquivo dela em `design/screens/` (layout, textos, dados, estados).

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 
 /**
  * Fluxo com o Supabase real e um usuário de teste temporário (E2E_REAL_EMAIL / E2E_REAL_PASSWORD).
@@ -9,7 +9,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 const EMAIL = process.env.E2E_REAL_EMAIL;
 const PASSWORD = process.env.E2E_REAL_PASSWORD;
-const ID_FILE = 'test-results/real-offer-id.txt';
+const ID_FILE = '.e2e-real-offer-id';
 
 test.skip(!EMAIL || !PASSWORD, 'defina E2E_REAL_EMAIL e E2E_REAL_PASSWORD (usuário de teste temporário)');
 
@@ -28,8 +28,10 @@ test.describe.serial('oferta com dados reais do usuário', () => {
     // Estado vazio, sem dados de exemplo.
     await expect(page.getByRole('heading', { name: 'Nenhuma oferta ainda' })).toBeVisible();
     await expect(page.getByText('Dados de exemplo', { exact: true })).toHaveCount(0);
-    await expect(page.getByText('Meta Ads não conectado')).toBeVisible();
-    await expect(page.getByText('Nenhuma sincronização ainda')).toBeVisible();
+    const sidebar = page.getByRole('complementary');
+    await expect(sidebar.getByText('Meta Ads não conectado')).toBeVisible();
+    await expect(sidebar.getByText('Nenhuma sincronização ainda')).toBeVisible();
+    await expect(sidebar.getByText('Nenhuma oferta ainda.')).toBeVisible();
     await expect(page.getByText('Ansiedade Zero')).toHaveCount(0);
 
     await page.getByRole('link', { name: 'Cadastrar primeira oferta' }).click();
@@ -56,7 +58,6 @@ test.describe.serial('oferta com dados reais do usuário', () => {
     // Vai para o dashboard da oferta recém-criada.
     await expect(page).toHaveURL(/\/ofertas\/[0-9a-f-]{36}$/);
     const id = new URL(page.url()).pathname.split('/').pop()!;
-    mkdirSync('test-results', { recursive: true });
     writeFileSync(ID_FILE, id);
 
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Oferta E2E');
@@ -129,8 +130,11 @@ test.describe.serial('oferta com dados reais do usuário', () => {
       expect(response?.status(), p).toBe(200);
       await expect(page.getByRole('heading', { level: 1 })).toHaveText('Oferta E2E');
     }
+    // 30 dias inclui também o dia semeado de 8 dias atrás (R$ 350 de gasto, 2 pedidos) e não tem período anterior com dados.
     await page.goto(`/ofertas/${id}?periodo=30d`);
-    await expect(card('Gasto')).toContainText('R$ 700');
+    await expect(card('Gasto')).toContainText('R$ 1.050');
+    await expect(card('Gasto')).toContainText('sem base de comparação');
+    await expect(card('Receita')).toContainText('R$ 1.199');
 
     // Visão geral com os mesmos totais.
     await page.goto('/');

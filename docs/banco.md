@@ -37,5 +37,6 @@ Aplicação num projeto real, Auth na interface, troca de `lib/data/sample` por 
 - Estados vazios: nenhuma oferta, oferta sem dados, nenhuma integração conectada, nenhuma sincronização.
 - `/ofertas/nova` cria a oferta com a sessão do usuário (a RLS define o dono). Faltam o nicho (sem coluna ainda), o script de rastreamento e a escolha de conta e pixel do Meta.
 - Nova view `campaign_daily_sales` (migração `20261018150000`), aplicada ao projeto.
-- **Verificado**: montagem das linhas, datas, variações e views (testes unitários e Postgres local).
-- **Ainda não verificado de ponta a ponta com dados reais**: o fluxo logado (cadastrar oferta e ver números semeados) precisa de um usuário de teste. O teste existe em `e2e/real.spec.ts` e fica pulado sem `E2E_REAL_EMAIL` e `E2E_REAL_PASSWORD`.
+- **Verificado**: montagem das linhas, datas, variações e views (testes unitários e Postgres local) e o fluxo logado de ponta a ponta no projeto real, com um usuário de teste: conta vazia, cadastro de oferta pelo app, e telas com números semeados (KPIs, critérios, funil, campanha, gráfico, períodos 1/7/30 dias, Visão geral). Depois do teste os dados foram removidos.
+- **Como repetir** (`e2e/real.spec.ts`, projeto `real` do Playwright): com `E2E_REAL_EMAIL` e `E2E_REAL_PASSWORD` definidos e a conta **vazia**, rode a parte 1 (`-g "conta vazia"`); semeie com `supabase/e2e/semear.sql` (substituindo `__EMAIL__` e `__OFFER_ID__`; o id fica em `.e2e-real-offer-id`); rode a parte 2 com `E2E_REAL_SEEDED=1` (`-g "semeados"`); limpe com `supabase/e2e/limpar.sql`. A limpeza só remove o que tem os marcadores do teste e não apaga o usuário.
+- **Ainda não verificado**: cadastro com e-mail de confirmação e link de acesso (enviam e-mail de verdade).
