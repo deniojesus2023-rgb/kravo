@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -141,5 +142,46 @@ test.describe.serial('oferta com dados reais do usuário', () => {
     await expect(page.locator('tfoot')).toContainText('R$ 700');
     await expect(page.locator('tfoot')).toContainText('1,28x');
     await expect(page.getByText('Nenhum dado de mídia nem de vendas neste período')).toHaveCount(0);
+  });
+});
+
+test.describe('integração com o Meta (sem chaves do app neste ambiente)', () => {
+  test('tela de Integrações em conta nova, acessível', async ({ page }) => {
+    await login(page);
+    await page.goto('/integracoes');
+    await expect(page.getByRole('heading', { level: 1, name: 'Integrações' })).toBeVisible();
+    await expect(page.getByText('Não conectado').first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Conectar com Facebook' })).toBeVisible();
+    await expect(page.getByText('As contas aparecem aqui depois que você conectar o Meta Ads.')).toBeVisible();
+    for (const name of ['Kiwify', 'Hotmart', 'Eduzz', 'Shopify']) {
+      await expect(page.getByText(name, { exact: true })).toBeVisible();
+    }
+    await expect(page.getByRole('button', { name: 'Em breve' })).toHaveCount(4);
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+    }
+  });
+
+  test('Conectar sem as chaves do app avisa, e não redireciona ao Facebook', async ({ page }) => {
+    await login(page);
+    await page.goto('/integracoes');
+    await page.getByRole('link', { name: 'Conectar com Facebook' }).click();
+    await expect(page).toHaveURL(/\/integracoes\?meta=nao_configurado$/);
+    await expect(page.locator('main [role="alert"]')).toContainText('ainda não está configurada');
+  });
+
+  test('retorno com state inválido ou autorização negada não conecta nada', async ({ page }) => {
+    await login(page);
+    await page.goto('/api/meta/callback?code=falso&state=falso');
+    await expect(page).toHaveURL(/meta=estado_invalido$/);
+    await expect(page.locator('main [role="alert"]')).toContainText('não pôde ser confirmada');
+    await page.goto('/api/meta/callback?error=access_denied&state=qualquer');
+    await expect(page).toHaveURL(/meta=negado$/);
+    await expect(page.locator('main [role="alert"]')).toContainText('Nada foi conectado');
+    await page.goto('/integracoes');
+    await expect(page.getByText('Não conectado').first()).toBeVisible();
   });
 });

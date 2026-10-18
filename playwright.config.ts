@@ -23,8 +23,13 @@ export default defineConfig({
     ...(authConfigured
       ? [
           { name: 'autenticacao', testMatch: 'auth.spec.ts', use: { baseURL: 'http://localhost:3101', ...chromium } },
-          // Usuário de teste temporário no Supabase real; ignorado sem E2E_REAL_EMAIL/E2E_REAL_PASSWORD.
-          { name: 'real', testMatch: 'real.spec.ts', use: { baseURL: 'http://localhost:3101', ...chromium } },
+          ...(process.env.E2E_REAL === '1'
+            ? [
+                // GRAVA no banco real (cria uma oferta no usuário de teste). Só roda com E2E_REAL=1 e a conta vazia;
+                // limpe depois com supabase/e2e/limpar.sql.
+                { name: 'real', testMatch: 'real.spec.ts', use: { baseURL: 'http://localhost:3101', ...chromium } },
+              ]
+            : []),
         ]
       : []),
   ],

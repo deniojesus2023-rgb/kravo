@@ -43,6 +43,14 @@ test.describe('rotas protegidas', () => {
     });
   }
 
+  for (const path of ['/api/meta/connect', '/api/meta/callback?code=x&state=y']) {
+    test(`${path} sem sessão vai para o login`, async ({ request }) => {
+      const response = await request.get(path, { maxRedirects: 0 });
+      expect(response.status()).toBe(307);
+      expect(response.headers().location).toContain('/login');
+    });
+  }
+
   test('nenhum dado de oferta vaza antes do login', async ({ request }) => {
     const response = await request.get('/ofertas/protocolo-vasos-livres', { maxRedirects: 0 });
     expect(response.status()).toBe(307);

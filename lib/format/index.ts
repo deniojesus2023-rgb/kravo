@@ -108,3 +108,10 @@ export function formatUpdatedAt(iso: string, nowIso: string): string {
   const { d, m } = parseIsoDate(at.date);
   return `${d} ${MONTHS[m - 1]} às ${at.time}`;
 }
+
+/** "2026-11-28T03:00:00Z" → "28 nov 2026", no dia civil de America/Sao_Paulo. */
+export function formatDateShort(iso: string): string {
+  const { date } = saoPauloParts(iso);
+  const { y, m, d } = parseIsoDate(date);
+  return `${d} ${MONTHS[m - 1]} ${y}`;
+}
