@@ -122,3 +122,20 @@ export function decideOfferAction(
     note: 'Não atende todos os critérios de Escalar e não há prejuízo confirmado.',
   };
 }
+
+const PARAM_KEYS = Object.keys(DEFAULT_DECISION_PARAMS) as Array<keyof DecisionParams>;
+
+/**
+ * Lê os limites guardados em `offers.decision_params` (jsonb). Chaves ausentes ou inválidas
+ * (não numéricas, negativas) voltam ao padrão: um valor ruim nunca altera a decisão em silêncio.
+ */
+export function parseDecisionParams(raw: unknown): DecisionParams {
+  const params = { ...DEFAULT_DECISION_PARAMS };
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return params;
+  const record = raw as Record<string, unknown>;
+  for (const key of PARAM_KEYS) {
+    const value = record[key];
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) params[key] = value;
+  }
+  return params;
+}

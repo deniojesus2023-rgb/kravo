@@ -44,14 +44,17 @@ export function SourceNote({
   context: DataContext;
   sources: string[];
   period: { start: string; end: string };
-  delayMinutes: number;
+  delayMinutes: number | null;
 }) {
   return (
     <span>
       <span className={label}>Fonte.</span>
-      {context.isSample && ' Dados de exemplo, não são dados reais.'} {joinSources(sources)} ·{' '}
-      {formatPeriodRange(period.start, period.end)} · {context.currency} · {context.timezone} · janela de atribuição:{' '}
-      {context.attributionWindow} · atraso de sincronização: {delayMinutes} min.
+      {context.isSample && ' Dados de exemplo, não são dados reais.'}{' '}
+      {sources.length > 0
+        ? joinSources(sources)
+        : 'Nenhuma integração conectada ainda; os números virão do Meta Ads e das plataformas de venda.'}{' '}
+      · {formatPeriodRange(period.start, period.end)} · {context.currency} · {context.timezone} · janela de atribuição:{' '}
+      {context.attributionWindow} · atraso de sincronização: {delayMinutes === null ? 'sem sincronização ainda' : `${delayMinutes} min`}.
     </span>
   );
 }

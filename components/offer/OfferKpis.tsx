@@ -52,7 +52,7 @@ export function OfferKpis({ summary }: { summary: OfferSummary }) {
         <Delta value={deltas.cpa} polarity="lower-is-better" />
       </Kpi>
       <Kpi label="Ticket médio" value={brl2(summary.ticketCents)}>
-        {Math.abs(deltas.ticket) < 0.005 ? 'estável' : <Delta value={deltas.ticket} polarity="neutral" />}
+        {deltas.ticket !== null && Math.abs(deltas.ticket) < 0.005 ? 'estável' : <Delta value={deltas.ticket} polarity="neutral" />}
       </Kpi>
     </section>
   );

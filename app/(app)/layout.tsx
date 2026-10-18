@@ -21,7 +21,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       roas: o.roasReal,
       action: o.decision.action,
     })),
-    meta: { status: connection.status, delayMinutes: connection.lastSync.delayMinutes },
+    meta: { status: connection.status, delayMinutes: connection.lastSync?.delayMinutes ?? null },
     isSample: context.isSample,
     user: email ? { email } : null,
   };

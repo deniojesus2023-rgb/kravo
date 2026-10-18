@@ -13,18 +13,20 @@ import type { ConnectionStatus } from '@/lib/data';
 
 export interface SidebarData {
   offers: Array<{ id: string; name: string; roas: number | null; action: OfferAction }>;
-  meta: { status: ConnectionStatus; delayMinutes: number };
+  meta: { status: ConnectionStatus; delayMinutes: number | null };
   isSample: boolean;
   /** Usuário logado. `null` quando a autenticação não está configurada. */
   user: { email: string } | null;
 }
 
 const META_LABEL: Record<ConnectionStatus, string> = {
+  nao_conectado: 'Meta Ads não conectado',
   conectado: 'Meta Ads conectado',
   expirando: 'Meta Ads: reconectar em breve',
   desconectado: 'Meta Ads desconectado',
 };
 const META_DOT: Record<ConnectionStatus, string> = {
+  nao_conectado: 'bg-state-neutral',
   conectado: 'bg-profit',
   expirando: 'bg-warn',
   desconectado: 'bg-loss',
@@ -94,6 +96,7 @@ export function SidebarContent({ offers, meta, isSample, user }: SidebarData) {
             +
           </Link>
         </div>
+        {offers.length === 0 && <p className="m-0 px-2.5 text-[13px] text-fg-subtle">Nenhuma oferta ainda.</p>}
         <ul className="m-0 flex list-none flex-col gap-px p-0">
           {offers.map((offer) => {
             const href = `/ofertas/${offer.id}`;
@@ -117,7 +120,9 @@ export function SidebarContent({ offers, meta, isSample, user }: SidebarData) {
           <span aria-hidden="true" className={cn('size-[7px] flex-none rounded-full', META_DOT[meta.status])} />
           <span>{META_LABEL[meta.status]}</span>
         </div>
-        <span className="text-xs text-fg-subtle">Sincronizado há {meta.delayMinutes} min</span>
+        <span className="text-xs text-fg-subtle">
+          {meta.delayMinutes === null ? 'Nenhuma sincronização ainda' : `Sincronizado há ${meta.delayMinutes} min`}
+        </span>
         {isSample && (
           <span className="mt-1">
             <SampleDataTag />

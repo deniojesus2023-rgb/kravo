@@ -29,3 +29,13 @@ Aplicação num projeto real, Auth na interface, troca de `lib/data/sample` por 
 - Só a URL e a chave publicável vão para o navegador. O destino pós-login (`next`) só aceita caminho interno.
 - Testado contra o projeto real: proteção de rotas, validação, acessibilidade e senha errada (`E2E_AUTH_NETWORK=1`). **Não testados**: cadastro com e-mail de confirmação e link de acesso (exigem criar usuário e enviar e-mail).
 - Não implementado: recuperação de senha, e-mails de confirmação personalizados, URLs de redirecionamento no painel do Supabase (`/auth/callback`).
+
+## Leitura do banco pelas telas (Fase 2, etapa 3)
+
+- `lib/data/index.ts` escolhe a fonte por requisição: Supabase (dados do usuário logado, com RLS) quando a autenticação está configurada; dados de exemplo caso contrário. Telas e regras não sabem qual está em uso.
+- Períodos reais: Hoje, Ontem, 7 dias e 30 dias, em America/Sao_Paulo, com variação contra o período anterior de mesma duração. Sem base de comparação a variação é `—`, nunca um número inventado. "Personalizado" ainda não existe.
+- Estados vazios: nenhuma oferta, oferta sem dados, nenhuma integração conectada, nenhuma sincronização.
+- `/ofertas/nova` cria a oferta com a sessão do usuário (a RLS define o dono). Faltam o nicho (sem coluna ainda), o script de rastreamento e a escolha de conta e pixel do Meta.
+- Nova view `campaign_daily_sales` (migração `20261018150000`), aplicada ao projeto.
+- **Verificado**: montagem das linhas, datas, variações e views (testes unitários e Postgres local).
+- **Ainda não verificado de ponta a ponta com dados reais**: o fluxo logado (cadastrar oferta e ver números semeados) precisa de um usuário de teste. O teste existe em `e2e/real.spec.ts` e fica pulado sem `E2E_REAL_EMAIL` e `E2E_REAL_PASSWORD`.

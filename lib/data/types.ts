@@ -14,7 +14,7 @@ import type { ActionDecision, DecisionParams } from '@/lib/rules';
 
 export type OfferId = string;
 export type SalesPlatform = 'Hotmart' | 'Kiwify' | 'Eduzz' | 'Shopify';
-export type OfferStatus = 'em_teste' | 'ativa' | 'pausada';
+export type OfferStatus = 'em_teste' | 'ativa' | 'pausada' | 'arquivada';
 
 export interface Offer {
   id: OfferId;
@@ -23,7 +23,8 @@ export interface Offer {
   name: string;
   salesPlatform: SalesPlatform;
   priceCents: number;
-  adAccountName: string;
+  /** `null` enquanto a oferta não está ligada a uma conta de anúncios. */
+  adAccountName: string | null;
   status: OfferStatus;
   tracking: { pixel: boolean; conversionsApi: boolean };
   /** Limites de decisão desta oferta. Ausente = padrão do sistema. */
@@ -68,18 +69,23 @@ export interface CampaignMetrics {
   approvedRevenueCents: number;
 }
 
-/** Variação em relação ao período anterior equivalente, como fração (0,091 = +9,1%). */
+/**
+ * Variação em relação ao período anterior equivalente, como fração (0,091 = +9,1%).
+ * `null` quando não há base de comparação (período anterior sem dados): nunca inventamos um valor.
+ */
 export interface PeriodDeltas {
-  spend: number;
-  revenue: number;
-  profit: number;
-  roas: number;
-  cpa: number;
-  ticket: number;
+  spend: number | null;
+  revenue: number | null;
+  profit: number | null;
+  roas: number | null;
+  cpa: number | null;
+  ticket: number | null;
 }
 
 export interface OfferPeriodData {
   offer: Offer;
+  /** Totais do período anterior, quando a fonte os tem (base das variações do portfólio). */
+  previous: { spendCents: number; approvedRevenueCents: number; refundedCents: number; sales: number } | null;
   daily: DailyMetric[];
   sales: DailySales[];
   campaigns: CampaignMetrics[];
@@ -107,14 +113,27 @@ export interface SyncRun {
   ok: boolean;
 }
 
-export type ConnectionStatus = 'conectado' | 'expirando' | 'desconectado';
+export type ConnectionStatus = 'nao_conectado' | 'conectado' | 'expirando' | 'desconectado';
 
 export interface MetaConnection {
   status: ConnectionStatus;
-  lastSync: SyncRun;
+  /** `null` enquanto nunca houve sincronização. */
+  lastSync: SyncRun | null;
 }
 
 export type PeriodId = 'hoje' | 'ontem' | '7d' | '30d' | 'personalizado';
+
+export interface PeriodRange {
+  id: PeriodId;
+  /** Primeiro e último dia (inclusive), "YYYY-MM-DD" em America/Sao_Paulo. */
+  start: string;
+  end: string;
+  /** Período anterior, com a mesma duração, usado nas variações. */
+  previousStart: string;
+  previousEnd: string;
+  /** Ex.: "vs. 7 dias anteriores". */
+  comparisonLabel: string;
+}
 
 export interface DataContext {
   currency: 'BRL';
@@ -122,9 +141,11 @@ export interface DataContext {
   /** Ex.: "7 dias após o clique". */
   attributionWindow: string;
   /** Período para o qual há dados (nos dados de exemplo, só os 7 dias). */
-  coverage: { periodId: PeriodId; start: string; end: string };
-  /** Instante de referência dos dados de exemplo ("agora"). */
+  coverage: { periodId: PeriodId; start: string; end: string } | null;
+  /** Instante de referência ("agora"). Nos dados de exemplo é fixo. */
   now: string;
+  /** Fim da última sincronização com o Meta Ads. `null` se nunca houve. */
+  updatedAt: string | null;
   /** Verdadeiro enquanto os números vierem da camada de exemplo. */
   isSample: boolean;
   sources: string[];
@@ -133,7 +154,7 @@ export interface DataContext {
 /** Totais e indicadores de uma oferta no período, já calculados pelas regras. */
 export interface OfferSummary {
   offer: Offer;
-  period: { id: PeriodId; start: string; end: string };
+  period: PeriodRange;
   spendCents: number;
   approvedRevenueCents: number;
   refundedCents: number;
@@ -165,7 +186,7 @@ export interface OfferDetail extends OfferSummary {
 }
 
 export interface Overview {
-  period: OfferSummary['period'];
+  period: PeriodRange;
   offers: OfferSummary[];
   totals: {
     spendCents: number;

@@ -21,7 +21,11 @@ export default defineConfig({
     { name: 'exemplo', testMatch: 'app.spec.ts', use: { baseURL: 'http://localhost:3100', ...chromium } },
     // App com Supabase configurado: proteção de rotas e telas de login.
     ...(authConfigured
-      ? [{ name: 'autenticacao', testMatch: 'auth.spec.ts', use: { baseURL: 'http://localhost:3101', ...chromium } }]
+      ? [
+          { name: 'autenticacao', testMatch: 'auth.spec.ts', use: { baseURL: 'http://localhost:3101', ...chromium } },
+          // Usuário de teste temporário no Supabase real; ignorado sem E2E_REAL_EMAIL/E2E_REAL_PASSWORD.
+          { name: 'real', testMatch: 'real.spec.ts', use: { baseURL: 'http://localhost:3101', ...chromium } },
+        ]
       : []),
   ],
   webServer: [

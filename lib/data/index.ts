@@ -1,75 +1,71 @@
 /**
- * Único ponto de entrada de dados para as telas. Hoje lê a camada de exemplo
- * (./sample); trocar pela fonte real significa reescrever só este arquivo e a
- * pasta sample/, sem mexer nas telas. As funções são assíncronas de propósito.
+ * Único ponto de entrada de dados para as telas. Escolhe a fonte por requisição:
+ * Supabase (dados reais do usuário logado, com RLS) quando a autenticação está configurada,
+ * ou a camada de exemplo. As telas e as regras não sabem qual das duas está em uso.
  */
 
-import { netProfitCents, refundRate, roas, cpaCents } from '@/lib/rules';
-import { DEFAULT_PERIOD } from './periods';
-import {
-  SAMPLE_ALERTS,
-  SAMPLE_META_CONNECTION,
-  SAMPLE_NOW,
-  SAMPLE_OFFERS,
-  SAMPLE_PORTFOLIO_DELTAS,
-  SAMPLE_SOURCES,
-} from './sample';
-import { SAMPLE_PERIOD } from './sample/build';
+import { cache } from 'react';
+import { cpaCents, netProfitCents, refundRate, roas } from '@/lib/rules';
+import { createClient } from '@/lib/supabase/server';
+import { sampleSource } from './sample/source';
 import { summarizeOffer } from './summarize';
+import { supabaseSource } from './supabase/source';
+import type { DataSource } from './source';
 import type {
   DailyMetric,
-  DataContext,
-  MetaConnection,
-  Offer,
   OfferDetail,
+  OfferPeriodData,
   OfferSummary,
   Overview,
   PeriodId,
+  PeriodRange,
 } from './types';
 
 export * from './types';
 export * from './periods';
 
-/** Só o período de 7 dias tem dados de exemplo. */
-function periodFor(id: PeriodId) {
-  return id === DEFAULT_PERIOD ? { id, ...SAMPLE_PERIOD } : null;
-}
+const getSource = cache(async (): Promise<DataSource> => {
+  const supabase = await createClient();
+  return supabase ? supabaseSource(supabase) : sampleSource;
+});
 
-export async function getContext(): Promise<DataContext> {
-  return { currency: 'BRL', timezone: 'America/Sao_Paulo',
-    attributionWindow: '7 dias após o clique',
-    coverage: { periodId: DEFAULT_PERIOD, ...SAMPLE_PERIOD },
-    now: SAMPLE_NOW, isSample: true, sources: SAMPLE_SOURCES };
-}
-
-export async function getMetaConnection(): Promise<MetaConnection> {
-  return SAMPLE_META_CONNECTION;
-}
-
-export async function getOffer(id: string): Promise<Offer | null> {
-  return SAMPLE_OFFERS.find((o) => o.offer.id === id)?.offer ?? null;
-}
-
-/** Ofertas do período, ordenadas por lucro líquido (maior primeiro). `null` quando não há dados. */
-export async function getOfferSummaries(period: PeriodId): Promise<OfferSummary[] | null> {
-  const range = periodFor(period);
+/** Dados do período, lidos uma única vez por requisição. `null` quando não há dados para o período. */
+const loadPeriod = cache(async (period: PeriodId) => {
+  const source = await getSource();
+  const range = source.range(period, new Date());
   if (!range) return null;
-  return SAMPLE_OFFERS.map((data) => summarizeOffer(data, range)).sort(
-    (a, b) => b.netProfitCents - a.netProfitCents,
-  );
+  const data = await source.offerPeriodData(range);
+  const summaries = data
+    .map((d) => summarizeOffer(d, range))
+    .sort((a, b) => b.netProfitCents - a.netProfitCents || a.offer.name.localeCompare(b.offer.name, 'pt-BR'));
+  return { source, range, data, summaries };
+});
+
+export const getContext = cache(async () => (await getSource()).context());
+export const getMetaConnection = cache(async () => (await getSource()).metaConnection());
+
+export async function getOffer(id: string) {
+  const offers = await (await getSource()).offers();
+  return offers.find((o) => o.id === id) ?? null;
+}
+
+/** Ofertas do período, ordenadas por lucro líquido (maior primeiro). `null` quando não há dados para o período. */
+export async function getOfferSummaries(period: PeriodId): Promise<OfferSummary[] | null> {
+  return (await loadPeriod(period))?.summaries ?? null;
 }
 
 export async function getOverview(period: PeriodId): Promise<Overview | null> {
-  const offers = await getOfferSummaries(period);
-  if (!offers) return null;
-  const sum = (pick: (o: OfferSummary) => number) => offers.reduce((acc, o) => acc + pick(o), 0);
+  const loaded = await loadPeriod(period);
+  if (!loaded) return null;
+  const { source, range, data, summaries } = loaded;
+  const sum = (pick: (o: OfferSummary) => number) => summaries.reduce((acc, o) => acc + pick(o), 0);
   const spendCents = sum((o) => o.spendCents);
   const approvedRevenueCents = sum((o) => o.approvedRevenueCents);
   const refundedCents = sum((o) => o.refundedCents);
   const sales = sum((o) => o.sales);
   return {
-    period: offers[0]!.period,
-    offers,
+    period: range,
+    offers: summaries,
     totals: {
       spendCents,
       approvedRevenueCents,
@@ -80,16 +76,16 @@ export async function getOverview(period: PeriodId): Promise<Overview | null> {
       cpaCents: cpaCents(spendCents, sales),
       refundRate: refundRate(refundedCents, approvedRevenueCents),
     },
-    deltas: SAMPLE_PORTFOLIO_DELTAS,
-    alerts: SAMPLE_ALERTS,
+    deltas: source.portfolioDeltas(data),
+    alerts: await source.alerts(),
   };
 }
 
 export async function getOfferDetail(id: string, period: PeriodId): Promise<OfferDetail | null> {
-  const range = periodFor(period);
-  const data = SAMPLE_OFFERS.find((o) => o.offer.id === id);
-  if (!range || !data) return null;
-  const summary = summarizeOffer(data, range);
+  const loaded = await loadPeriod(period);
+  const data: OfferPeriodData | undefined = loaded?.data.find((d) => d.offer.id === id);
+  if (!loaded || !data) return null;
+  const summary = summarizeOffer(data, loaded.range);
   const sum = (pick: (d: DailyMetric) => number) => data.daily.reduce((acc, d) => acc + pick(d), 0);
   return {
     ...summary,
@@ -110,3 +106,5 @@ export async function getOfferDetail(id: string, period: PeriodId): Promise<Offe
     adCount: data.adCount,
   };
 }
+
+export type { PeriodRange };

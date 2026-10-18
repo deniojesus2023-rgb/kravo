@@ -47,7 +47,8 @@ export function OfferHeader({
           </div>
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-fg-muted">
             <span>
-              {offer.salesPlatform} · {formatBRL(offer.priceCents, { decimals: 2 })} · {offer.adAccountName} ·{' '}
+              {offer.salesPlatform} · {formatBRL(offer.priceCents, { decimals: 2 })} ·{' '}
+              {offer.adAccountName ? `${offer.adAccountName} · ` : 'Sem conta de anúncios · '}
               {trackingText(offer.tracking)}
             </span>
             {isSample && <SampleDataTag />}

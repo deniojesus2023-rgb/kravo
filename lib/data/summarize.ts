@@ -6,15 +6,12 @@ import {
   refundRate,
   roas,
 } from '@/lib/rules';
-import type { OfferPeriodData, OfferSummary, PeriodId } from './types';
+import type { OfferPeriodData, OfferSummary, PeriodRange } from './types';
 
 const sum = <T>(items: T[], pick: (item: T) => number) => items.reduce((acc, item) => acc + pick(item), 0);
 
 /** Soma os dados brutos de uma oferta e aplica as regras. Independe da fonte (exemplo ou real). */
-export function summarizeOffer(
-  data: OfferPeriodData,
-  period: { id: PeriodId; start: string; end: string },
-): OfferSummary {
+export function summarizeOffer(data: OfferPeriodData, period: PeriodRange): OfferSummary {
   const spendCents = sum(data.daily, (d) => d.spendCents);
   const approvedRevenueCents = sum(data.sales, (s) => s.approvedRevenueCents);
   const refundedCents = sum(data.sales, (s) => s.refundedCents);

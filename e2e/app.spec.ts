@@ -11,6 +11,7 @@ const PAGES = [
   '/ofertas/protocolo-vasos-livres/criativos',
   '/login',
   '/cadastro',
+  '/ofertas/nova',
 ];
 
 // Paleta oficial + neutros derivados registrados em app/globals.css.

@@ -380,6 +380,25 @@ describe('views de totais diários', () => {
     ]);
   });
 
+  it('vendas por campanha e dia (atribuição por UTM)', async () => {
+    await db.query(
+      `insert into public.orders (user_id, offer_id, sales_connection_id, platform_order_id, status, amount_cents, approved_at, campaign_id)
+       values ($1, $2, $3, 'c1', 'aprovado', 14990, '2026-10-17T23:30:00-03:00', $4),
+              ($1, $2, $3, 'c2', 'aprovado', 14990, '2026-10-18T00:10:00-03:00', $4),
+              ($1, $2, $3, 'c3', 'aprovado', 14990, '2026-10-18T01:00:00-03:00', null)`,
+      [A, ids.offera, ids.salesa, ids.campaigna],
+    );
+    const rowsA = await asUser(A, () =>
+      rows<Record<string, unknown>>(`select date::text as date, approved_orders, approved_revenue_cents from public.campaign_daily_sales order by date`),
+    );
+    expect(rowsA.map((r) => [r.date, n(r.approved_orders), n(r.approved_revenue_cents)])).toEqual([
+      ['2026-10-17', 1, 14990],
+      ['2026-10-18', 1, 14990], // o pedido sem campanha não entra
+    ]);
+    expect(await asUser(B, () => rows('select * from public.campaign_daily_sales'))).toEqual([]);
+    await db.query(`delete from public.orders where platform_order_id in ('c1', 'c2', 'c3')`);
+  });
+
   it('as views respeitam a RLS: B não vê nada de A', async () => {
     const seen = await asUser(B, () => rows('select * from public.offer_daily_metrics'));
     expect(seen).toEqual([]);

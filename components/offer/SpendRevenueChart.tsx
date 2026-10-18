@@ -36,6 +36,8 @@ export function SpendRevenueChart({ days }: { days: DayPoint[] }) {
 
   const revenuePoints = days.map((d, i) => `${x(i)},${y(d.revenueCents)}`);
   const spendPoints = days.map((d, i) => `${x(i)},${y(d.spendCents)}`);
+  // No máximo ~8 rótulos no eixo; períodos longos mostram um a cada N dias.
+  const labelEvery = Math.max(1, Math.ceil(days.length / 8));
   const peakIndex = days.reduce((best, d, i, all) => (d.revenueCents > (all[best]?.revenueCents ?? 0) ? i : best), 0);
   const peak = days[peakIndex]!;
 
@@ -65,11 +67,13 @@ export function SpendRevenueChart({ days }: { days: DayPoint[] }) {
           ))}
         </g>
         <g className="fill-fg-muted" fontSize="12" textAnchor="middle">
-          {days.map((d, i) => (
-            <text key={d.date} x={x(i)} y={246}>
-              {formatWeekdayDay(d.date)}
-            </text>
-          ))}
+          {days.map((d, i) =>
+            i % labelEvery === 0 ? (
+              <text key={d.date} x={x(i)} y={246}>
+                {formatWeekdayDay(d.date)}
+              </text>
+            ) : null,
+          )}
         </g>
         <path
           d={`M${revenuePoints.join(' L')} L${x(days.length - 1)},${BOTTOM} L${x(0)},${BOTTOM} Z`}
