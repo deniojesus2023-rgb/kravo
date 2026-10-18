@@ -46,3 +46,11 @@ As páginas `/privacidade`, `/termos` e `/exclusao-de-dados` existem e são púb
 4. Sincronização de métricas (Graph `insights`) para `daily_metrics`. Não implementada. Campanhas só ganham métricas quando ligadas a uma oferta (prefixo do nome = código da oferta, ou vínculo manual).
 5. Páginas legais com dados reais (`lib/legal.ts`) e revisão jurídica.
 6. Acesso Avançado: verificação do negócio, screencast e revisão.
+
+## Diagnóstico de falha na conexão
+
+Quando a conexão falha, o servidor registra uma linha JSON `meta_conexao_falhou` (nos logs da Vercel) com: `reason`, `etapa`, `codigo`, `subcodigo`, `status`, `tipo`, `fbtrace_id`, `mensagem_meta` (já sem valores sensíveis), `redirect_host` e `redirect_path` (sem query), `credenciais_do_app` (`validas`, `invalidas` ou `indeterminado`, de uma sonda `client_credentials` que só roda na falha da troca do código), `formato_app_id_ok` e `formato_chave_secreta_ok` (booleanos; a chave de app da Meta tem 32 caracteres hexadecimais), `usa_config_id` e `versao_graph`.
+
+Nunca entram no log: token, código do login, `state`, chave secreta nem o corpo bruto da resposta. A tela de Integrações mostra só etapa, código, subcódigo e status, a partir de listas fixas.
+
+Leitura rápida: `codigo 1` + "Error validating client secret" = chave secreta que não pertence ao app (ou ao ID configurado). `codigo 100` + subcódigo `36008` = `redirect_uri` diferente do usado no diálogo; `36009` = código já usado ou em formato inválido.

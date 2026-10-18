@@ -2,13 +2,33 @@ import { appSecretProof } from './oauth';
 import type { MetaEnv } from './config';
 
 export class MetaApiError extends Error {
+  readonly type: string | null;
+  readonly subcode: number | null;
+  readonly fbtraceId: string | null;
+
   constructor(
     message: string,
     readonly code: number | null,
     readonly status: number,
+    extra: { type?: string | null; subcode?: number | null; fbtraceId?: string | null } = {},
   ) {
     super(message);
+    this.type = extra.type ?? null;
+    this.subcode = extra.subcode ?? null;
+    this.fbtraceId = extra.fbtraceId ?? null;
   }
+}
+
+/**
+ * Mensagem de erro da Meta, segura para log: tira qualquer valor sensível conhecido (segredo, código,
+ * token, passados em `secrets`), qualquer sequência longa que pareça token ou código, e limita o tamanho.
+ * A Meta às vezes repete o valor recebido na mensagem (ex.: "Malformed access token …").
+ */
+export function redactMessage(message: string, secrets: string[]): string {
+  let out = message;
+  for (const secret of secrets) if (secret.length >= 8) out = out.split(secret).join('[redigido]');
+  out = out.replace(/[A-Za-z0-9_|.\-]{24,}/g, '[redigido]');
+  return out.length > 300 ? `${out.slice(0, 300)}…` : out;
 }
 
 export interface AdAccountInfo {
@@ -47,9 +67,23 @@ export function createGraph(env: MetaEnv, fetcher: FetchLike = fetch as FetchLik
     } catch {
       throw new MetaApiError('Não foi possível falar com a Meta agora.', null, 0);
     }
-    const body = (await response.json().catch(() => ({}))) as { error?: { message?: string; code?: number } } & T;
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: { message?: string; code?: number; type?: string; error_subcode?: number; fbtrace_id?: string };
+    } & T;
     if (!response.ok || body.error) {
-      throw new MetaApiError(body.error?.message ?? `A Meta respondeu com erro ${response.status}.`, body.error?.code ?? null, response.status);
+      // Só campos escolhidos do erro; o corpo bruto da resposta nunca vai adiante.
+      const e = body.error;
+      const sensitive = [env.appSecret, token ?? '', ...Object.values(params)];
+      throw new MetaApiError(
+        e?.message ? redactMessage(String(e.message), sensitive) : `A Meta respondeu com erro ${response.status}.`,
+        typeof e?.code === 'number' ? e.code : null,
+        response.status,
+        {
+          type: typeof e?.type === 'string' && /^[A-Za-z]{3,40}$/.test(e.type) ? e.type : null,
+          subcode: typeof e?.error_subcode === 'number' ? e.error_subcode : null,
+          fbtraceId: typeof e?.fbtrace_id === 'string' && /^[A-Za-z0-9_-]{6,40}$/.test(e.fbtrace_id) ? e.fbtrace_id : null,
+        },
+      );
     }
     return body;
   }
@@ -77,6 +111,22 @@ export function createGraph(env: MetaEnv, fetcher: FetchLike = fetch as FetchLik
           fb_exchange_token: shortToken,
         }),
       );
+    },
+
+    /**
+     * Sonda de diagnóstico: o par ID + chave secreta do app é válido? Usa o token de app (client_credentials),
+     * que é descartado: só o resultado (verdadeiro, falso ou indeterminado) sai daqui.
+     */
+    async checkAppCredentials(): Promise<boolean | null> {
+      try {
+        await call('/oauth/access_token', { client_id: env.appId, client_secret: env.appSecret, grant_type: 'client_credentials' });
+        return true;
+      } catch (error) {
+        if (error instanceof MetaApiError && error.status >= 400 && error.status < 500 && [1, 100, 101, 190, 200].includes(error.code ?? -1)) {
+          return false;
+        }
+        return null;
+      }
     },
 
     async profile(token: string): Promise<{ id: string; name: string | null }> {

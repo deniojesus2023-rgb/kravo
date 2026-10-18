@@ -182,6 +182,7 @@ describe('conclusão da conexão', () => {
       grantedPermissions: vi.fn(async () => permissions),
       adAccounts: vi.fn(async () => [account]),
       revoke: vi.fn(),
+      checkAppCredentials: vi.fn(async () => false),
     }) as unknown as Graph;
   const input = { userId: 'user-1', code: 'cod', redirectUri: 'https://app/cb' };
   const now = () => new Date('2026-10-18T12:00:00Z');
@@ -214,7 +215,7 @@ describe('conclusão da conexão', () => {
     const store: ConnectionStore = { save: vi.fn() };
     const graph = okGraph();
     (graph.exchangeCode as ReturnType<typeof vi.fn>).mockRejectedValue(new MetaApiError('Código inválido', 100, 400));
-    expect(await completeMetaConnection({ graph, store, now }, input)).toEqual({
+    expect(await completeMetaConnection({ graph, store, now }, input)).toMatchObject({
       ok: false,
       reason: 'meta',
       diagnostic: { step: 'troca_do_codigo', code: 100, status: 400 },
@@ -225,11 +226,12 @@ describe('conclusão da conexão', () => {
     const store: ConnectionStore = { save: vi.fn() };
     const graph = okGraph();
     (graph.adAccounts as ReturnType<typeof vi.fn>).mockRejectedValue(new MetaApiError('x', 190, 401));
-    expect(await completeMetaConnection({ graph, store, now }, input)).toEqual({
+    expect(await completeMetaConnection({ graph, store, now }, input)).toMatchObject({
       ok: false,
       reason: 'meta',
       diagnostic: { step: 'leitura_de_perfil_permissoes_e_contas', code: 190, status: 401 },
     });
+    expect(graph.checkAppCredentials).not.toHaveBeenCalled(); // a sonda só roda na troca do código
     expect(store.save).not.toHaveBeenCalled();
   });
 
@@ -246,6 +248,7 @@ import { describeDiagnostic, diagnosticParams } from '@/lib/meta/diagnostic';
 describe('detalhe técnico na tela', () => {
   it('só leva listas fixas e números pela URL', () => {
     expect(diagnosticParams({ step: 'troca_do_codigo', code: 100, status: 400 })).toEqual({ etapa: 'troca_do_codigo', codigo: '100', http: '400' });
+    expect(diagnosticParams({ step: 'troca_do_codigo', code: 1, subcode: 2069, status: 400 })).toEqual({ etapa: 'troca_do_codigo', codigo: '1', sub: '2069', http: '400' });
     expect(diagnosticParams({ step: '<script>alert(1)</script>', code: null, status: 0 })).toEqual({ http: '0' });
     expect(diagnosticParams({ detail: 'falha ao gravar credencial' })).toEqual({ salvar: 'credencial' });
     expect(diagnosticParams({ detail: 'TOKEN_ENCRYPTION_KEY inválida: precisa ser uma chave de 32 bytes em base64.' })).toEqual({ salvar: 'chave' });
@@ -257,8 +260,159 @@ describe('detalhe técnico na tela', () => {
     expect(describeDiagnostic({ etapa: 'troca_do_codigo', codigo: '100', http: '400' })).toBe(
       'etapa: troca do código do login por um token · código da Meta: 100 · status HTTP: 400',
     );
+    expect(describeDiagnostic({ etapa: 'troca_do_codigo', codigo: '1', sub: '2069', http: '400' })).toBe(
+      'etapa: troca do código do login por um token · código da Meta: 1 · subcódigo: 2069 · status HTTP: 400',
+    );
+    expect(describeDiagnostic({ sub: 'abc' })).toBeNull();
     expect(describeDiagnostic({ http: '0' })).toBe('sem resposta da Meta');
     expect(describeDiagnostic({ etapa: 'qualquer coisa', codigo: '12ab', http: '99999', salvar: 'x' })).toBeNull();
     expect(describeDiagnostic({})).toBeNull();
+  });
+});
+
+
+import { redactMessage } from '@/lib/meta/graph';
+import { redirectParts } from '@/lib/meta/flow';
+import { failureLogEntry } from '@/lib/meta/diagnostic';
+
+describe('erro da Meta: campos e redação', () => {
+  it('guarda message, type, error_subcode e fbtrace_id, e só esses', async () => {
+    const graph = createGraph(env, async () =>
+      jsonResponse(
+        {
+          error: { message: 'Error validating client secret.', type: 'OAuthException', code: 1, error_subcode: 2069, fbtrace_id: 'AbC123xyz_9', extra: 'ignorado' },
+          lixo: 'corpo bruto que não pode vazar',
+        },
+        400,
+      ),
+    );
+    const error = (await graph.exchangeCode('codigo-do-login-123', 'https://app/cb').catch((e) => e)) as MetaApiError;
+    expect(error).toBeInstanceOf(MetaApiError);
+    expect(error).toMatchObject({ message: 'Error validating client secret.', type: 'OAuthException', code: 1, subcode: 2069, fbtraceId: 'AbC123xyz_9', status: 400 });
+    expect(JSON.stringify(error)).not.toContain('corpo bruto');
+  });
+
+  it('rejeita type e fbtrace_id com formato estranho', async () => {
+    const graph = createGraph(env, async () =>
+      jsonResponse({ error: { message: 'x', type: '<script>', code: 1, fbtrace_id: 'com espaço e <b>' } }, 400),
+    );
+    const error = (await graph.profile('t').catch((e) => e)) as MetaApiError;
+    expect([error.type, error.fbtraceId]).toEqual([null, null]);
+  });
+
+  it('a mensagem nunca repete segredo, código do login nem token', async () => {
+    const graph = createGraph(env, async () =>
+      jsonResponse(
+        { error: { message: 'Bad code codigo-do-login-123 with secret segredo-do-app and Malformed access token EAABsbCS1iHgBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', code: 190 } },
+        400,
+      ),
+    );
+    const error = (await graph.exchangeCode('codigo-do-login-123', 'https://app/cb').catch((e) => e)) as MetaApiError;
+    expect(error.message).not.toContain('codigo-do-login-123');
+    expect(error.message).not.toContain('segredo-do-app');
+    expect(error.message).not.toContain('EAAB');
+    expect(error.message).toContain('[redigido]');
+  });
+
+  it('redactMessage: troca valores conhecidos, sequências longas e limita o tamanho', () => {
+    expect(redactMessage('valor ABCDEFGH1234 aqui', ['ABCDEFGH1234'])).toBe('valor [redigido] aqui');
+    expect(redactMessage('token ' + 'a'.repeat(40), [])).toBe('token [redigido]');
+    expect(redactMessage('Error validating client secret.', [])).toBe('Error validating client secret.');
+    expect(redactMessage('curto', ['abc'])).toBe('curto'); // valores curtos demais não são trocados
+    expect(redactMessage('palavra '.repeat(100), []).length).toBeLessThanOrEqual(301);
+  });
+
+  it('sonda das credenciais do app: válidas, inválidas ou indeterminadas', async () => {
+    const ok = createGraph(env, async (u) => {
+      expect(new URL(u).searchParams.get('grant_type')).toBe('client_credentials');
+      return jsonResponse({ access_token: 'APP|TOKEN', token_type: 'bearer' });
+    });
+    expect(await ok.checkAppCredentials()).toBe(true);
+    const bad = createGraph(env, async () => jsonResponse({ error: { message: 'Error validating client secret.', code: 1 } }, 400));
+    expect(await bad.checkAppCredentials()).toBe(false);
+    const rate = createGraph(env, async () => jsonResponse({ error: { message: 'limite', code: 4 } }, 400));
+    expect(await rate.checkAppCredentials()).toBeNull();
+    const net = createGraph(env, async () => {
+      throw new Error('rede');
+    });
+    expect(await net.checkAppCredentials()).toBeNull();
+  });
+});
+
+describe('diagnóstico da falha na troca do código', () => {
+  const failing = (): Graph =>
+    ({
+      exchangeCode: vi.fn(async () => {
+        throw new MetaApiError('Error validating client secret.', 1, 400, { type: 'OAuthException', subcode: 2069, fbtraceId: 'AbC123xyz_9' });
+      }),
+      checkAppCredentials: vi.fn(async () => false),
+    }) as unknown as Graph;
+
+  it('traz o erro completo, o redirect (host e caminho) e o resultado da sonda', async () => {
+    const result = await completeMetaConnection(
+      { graph: failing(), store: { save: vi.fn() } },
+      { userId: 'u', code: 'codigo-do-login-123', redirectUri: 'https://kravo-six.vercel.app/api/meta/callback?code=codigo-do-login-123&state=abc' },
+    );
+    expect(result).toEqual({
+      ok: false,
+      reason: 'meta',
+      diagnostic: {
+        step: 'troca_do_codigo',
+        code: 1,
+        subcode: 2069,
+        status: 400,
+        type: 'OAuthException',
+        fbtraceId: 'AbC123xyz_9',
+        metaMessage: 'Error validating client secret.',
+        redirectHost: 'kravo-six.vercel.app',
+        redirectPath: '/api/meta/callback',
+        appCredentialsValid: false,
+      },
+    });
+  });
+
+  it('redirectParts descarta query e fragmento', () => {
+    expect(redirectParts('https://x.com/a/b?code=1&state=2#f')).toEqual({ redirectHost: 'x.com', redirectPath: '/a/b' });
+    expect(redirectParts('lixo')).toEqual({});
+  });
+
+  it('a entrada de log tem os campos pedidos e nenhum valor sensível', async () => {
+    const secret = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+    const logEnv: MetaEnv = { appId: '1480399224146629', appSecret: secret, configId: '1159205726457078', graphVersion: 'v23.0' };
+    const result = await completeMetaConnection(
+      { graph: failing(), store: { save: vi.fn() } },
+      { userId: 'u', code: 'codigo-do-login-123', redirectUri: 'https://kravo-six.vercel.app/api/meta/callback' },
+    );
+    if (result.ok) throw new Error('esperava falha');
+    const entry = failureLogEntry(result, logEnv);
+    expect(entry).toMatchObject({
+      evento: 'meta_conexao_falhou',
+      etapa: 'troca_do_codigo',
+      codigo: 1,
+      subcodigo: 2069,
+      status: 400,
+      tipo: 'OAuthException',
+      fbtrace_id: 'AbC123xyz_9',
+      mensagem_meta: 'Error validating client secret.',
+      redirect_host: 'kravo-six.vercel.app',
+      redirect_path: '/api/meta/callback',
+      credenciais_do_app: 'invalidas',
+      formato_app_id_ok: true,
+      formato_chave_secreta_ok: true,
+      usa_config_id: true,
+      versao_graph: 'v23.0',
+    });
+    const line = JSON.stringify(entry);
+    for (const forbidden of [secret, 'codigo-do-login-123', '1159205726457078', 'state=', 'access_token']) {
+      expect(line, forbidden).not.toContain(forbidden);
+    }
+  });
+
+  it('formatos: detecta ID ou chave com aspas, espaços ou tamanho errado, sem mostrar o valor', () => {
+    const base = { ok: false as const, reason: 'meta' as const, diagnostic: { step: 'troca_do_codigo' } };
+    const bad: MetaEnv = { appId: '"1480399224146629"', appSecret: '"a1b2c3d4e5f60718293a4b5c6d7e8f90"', configId: null, graphVersion: 'v23.0' };
+    const entry = failureLogEntry(base, bad);
+    expect(entry).toMatchObject({ formato_app_id_ok: false, formato_chave_secreta_ok: false, usa_config_id: false });
+    expect(JSON.stringify(entry)).not.toContain('a1b2c3');
   });
 });

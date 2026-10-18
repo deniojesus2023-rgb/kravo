@@ -42,7 +42,7 @@ const row = 'flex justify-between gap-4 border-t border-line py-2.5 text-[13px]'
 export default async function IntegrationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ meta?: string; etapa?: string; codigo?: string; http?: string; salvar?: string }>;
+  searchParams: Promise<{ meta?: string; etapa?: string; codigo?: string; sub?: string; http?: string; salvar?: string }>;
 }) {
   const query = await searchParams;
   const message = MESSAGES[query.meta ?? ''];
