@@ -1,6 +1,6 @@
 # Banco de dados (Fase 2, etapa 1)
 
-Migrações em `supabase/migrations/`, aplicadas em ordem. Testadas num Postgres local (PGlite) com `pnpm test`; **ainda não foram aplicadas a um projeto Supabase real**.
+Migrações em `supabase/migrations/`, aplicadas em ordem. Testadas num Postgres local (PGlite) com `pnpm test` e **aplicadas ao projeto Supabase `kravo`** (sa-east-1) em 18/10/2026 pela API de gerenciamento. O isolamento foi verificado no banco real com `supabase/verificar_rls.sql` (termina sempre em rollback).
 
 ## Decisões
 
@@ -27,5 +27,5 @@ Aplicação num projeto real, Auth na interface, troca de `lib/data/sample` por 
 - E-mail e senha, link de acesso (sem criar conta por ele) e cadastro, com `@supabase/ssr`. Páginas `/login` e `/cadastro`, callback em `/auth/callback`, saída pelo botão "Sair" da sidebar.
 - `proxy.ts` renova a sessão e redireciona para `/login?next=…` quem não está logado. Sem as variáveis do Supabase ele não faz nada (modo dados de exemplo).
 - Só a URL e a chave publicável vão para o navegador. O destino pós-login (`next`) só aceita caminho interno.
-- **Ainda não testado contra o projeto real**: a rede da sessão bloqueia o host do Supabase. Os testes cobrem proteção de rotas, validação e acessibilidade; o teste de credenciais (`E2E_AUTH_NETWORK=1`) fica pendente.
+- Testado contra o projeto real: proteção de rotas, validação, acessibilidade e senha errada (`E2E_AUTH_NETWORK=1`). **Não testados**: cadastro com e-mail de confirmação e link de acesso (exigem criar usuário e enviar e-mail).
 - Não implementado: recuperação de senha, e-mails de confirmação personalizados, URLs de redirecionamento no painel do Supabase (`/auth/callback`).
