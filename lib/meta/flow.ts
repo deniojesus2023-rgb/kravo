@@ -4,7 +4,12 @@ import { MetaApiError, type AdAccountInfo, type Graph } from './graph';
 
 export type ConnectResult =
   | { ok: true; accounts: number; permissions: string[] }
-  | { ok: false; reason: 'permissao' | 'meta' | 'salvar' };
+  | {
+      ok: false;
+      reason: 'permissao' | 'meta' | 'salvar';
+      /** Diagnóstico seguro para log: etapa e código da Meta. Nunca token, segredo nem mensagem do usuário. */
+      diagnostic?: { step?: string; code?: number | null; status?: number; detail?: string };
+    };
 
 export interface ConnectionStore {
   save(input: {
@@ -32,16 +37,21 @@ export async function completeMetaConnection(
   let profile;
   let permissions: string[];
   let accounts: AdAccountInfo[];
+  let step = 'troca_do_codigo';
   try {
     const short = await deps.graph.exchangeCode(input.code, input.redirectUri);
+    step = 'token_de_longa_duracao';
     long = await deps.graph.toLongLived(short.accessToken);
+    step = 'leitura_de_perfil_permissoes_e_contas';
     [profile, permissions, accounts] = await Promise.all([
       deps.graph.profile(long.accessToken),
       deps.graph.grantedPermissions(long.accessToken),
       deps.graph.adAccounts(long.accessToken),
     ]);
   } catch (error) {
-    if (error instanceof MetaApiError) return { ok: false, reason: 'meta' };
+    if (error instanceof MetaApiError) {
+      return { ok: false, reason: 'meta', diagnostic: { step, code: error.code, status: error.status } };
+    }
     throw error;
   }
 
@@ -58,8 +68,9 @@ export async function completeMetaConnection(
       permissions,
       accounts,
     });
-  } catch {
-    return { ok: false, reason: 'salvar' };
+  } catch (error) {
+    // As mensagens do armazenamento são fixas e não carregam credenciais.
+    return { ok: false, reason: 'salvar', diagnostic: { detail: error instanceof Error ? error.message : 'desconhecido' } };
   }
   return { ok: true, accounts: accounts.length, permissions };
 }

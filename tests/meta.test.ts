@@ -210,16 +210,33 @@ describe('conclusão da conexão', () => {
     expect(store.save).not.toHaveBeenCalled();
   });
 
+  it('falha na troca do código informa a etapa', async () => {
+    const store: ConnectionStore = { save: vi.fn() };
+    const graph = okGraph();
+    (graph.exchangeCode as ReturnType<typeof vi.fn>).mockRejectedValue(new MetaApiError('Código inválido', 100, 400));
+    expect(await completeMetaConnection({ graph, store, now }, input)).toEqual({
+      ok: false,
+      reason: 'meta',
+      diagnostic: { step: 'troca_do_codigo', code: 100, status: 400 },
+    });
+  });
+
   it('falha da Meta em qualquer etapa não grava nada', async () => {
     const store: ConnectionStore = { save: vi.fn() };
     const graph = okGraph();
     (graph.adAccounts as ReturnType<typeof vi.fn>).mockRejectedValue(new MetaApiError('x', 190, 401));
-    expect(await completeMetaConnection({ graph, store, now }, input)).toEqual({ ok: false, reason: 'meta' });
+    expect(await completeMetaConnection({ graph, store, now }, input)).toEqual({
+      ok: false,
+      reason: 'meta',
+      diagnostic: { step: 'leitura_de_perfil_permissoes_e_contas', code: 190, status: 401 },
+    });
     expect(store.save).not.toHaveBeenCalled();
   });
 
   it('falha ao gravar vira erro "salvar", sem expor detalhes', async () => {
-    const store: ConnectionStore = { save: vi.fn(async () => { throw new Error('detalhe interno com token longo'); }) };
-    expect(await completeMetaConnection({ graph: okGraph(), store, now }, input)).toEqual({ ok: false, reason: 'salvar' });
+    const store: ConnectionStore = { save: vi.fn(async () => { throw new Error('detalhe interno sem credencial'); }) };
+    const result = await completeMetaConnection({ graph: okGraph(), store, now }, input);
+    expect(result).toMatchObject({ ok: false, reason: 'salvar' });
+    expect(JSON.stringify(result)).not.toContain('sk-segredo-123'); // o token nunca entra no diagnóstico
   });
 });

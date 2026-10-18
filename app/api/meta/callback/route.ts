@@ -40,5 +40,9 @@ export async function GET(request: NextRequest) {
     { graph: createGraph(env), store: supabaseConnectionStore(admin) },
     { userId: user.id, code, redirectUri: metaRedirectUri(origin) },
   );
+  if (!result.ok) {
+    // Vai para os logs do servidor (ex.: Vercel). Só etapa, código e status: sem token, segredo ou dados do usuário.
+    console.error(JSON.stringify({ evento: 'meta_conexao_falhou', reason: result.reason, ...result.diagnostic }));
+  }
   return finish(result.ok ? 'ok' : result.reason);
 }
