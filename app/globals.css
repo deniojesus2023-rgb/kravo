@@ -86,3 +86,17 @@
     animation-duration: 0.01ms !important;
   }
 }
+
+/* Link que cobre a linha inteira da tabela; o foco aparece na linha. */
+.row-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.row-link:focus-visible {
+  outline: none;
+}
+.row-link:focus-visible::after {
+  outline: 2px solid var(--color-brand);
+  outline-offset: -2px;
+}

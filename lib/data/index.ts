@@ -36,7 +36,10 @@ function periodFor(id: PeriodId) {
 }
 
 export async function getContext(): Promise<DataContext> {
-  return { currency: 'BRL', timezone: 'America/Sao_Paulo', now: SAMPLE_NOW, isSample: true, sources: SAMPLE_SOURCES };
+  return { currency: 'BRL', timezone: 'America/Sao_Paulo',
+    attributionWindow: '7 dias após o clique',
+    coverage: { periodId: DEFAULT_PERIOD, ...SAMPLE_PERIOD },
+    now: SAMPLE_NOW, isSample: true, sources: SAMPLE_SOURCES };
 }
 
 export async function getMetaConnection(): Promise<MetaConnection> {

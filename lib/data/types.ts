@@ -119,6 +119,10 @@ export type PeriodId = 'hoje' | 'ontem' | '7d' | '30d' | 'personalizado';
 export interface DataContext {
   currency: 'BRL';
   timezone: 'America/Sao_Paulo';
+  /** Ex.: "7 dias após o clique". */
+  attributionWindow: string;
+  /** Período para o qual há dados (nos dados de exemplo, só os 7 dias). */
+  coverage: { periodId: PeriodId; start: string; end: string };
   /** Instante de referência dos dados de exemplo ("agora"). */
   now: string;
   /** Verdadeiro enquanto os números vierem da camada de exemplo. */
