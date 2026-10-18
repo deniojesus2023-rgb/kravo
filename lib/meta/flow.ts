@@ -2,13 +2,38 @@ import { META_SCOPES } from './config';
 import { expiresAtFrom } from './oauth';
 import { MetaApiError, type AdAccountInfo, type Graph } from './graph';
 
+/** Host e caminho de uma URL, sem query nem fragmento. */
+export function redirectParts(uri: string): { redirectHost?: string; redirectPath?: string } {
+  try {
+    const u = new URL(uri);
+    return { redirectHost: u.host, redirectPath: u.pathname };
+  } catch {
+    return {};
+  }
+}
+
 export type ConnectResult =
   | { ok: true; accounts: number; permissions: string[] }
   | {
       ok: false;
       reason: 'permissao' | 'meta' | 'salvar';
       /** Diagnóstico seguro para log: etapa e código da Meta. Nunca token, segredo nem mensagem do usuário. */
-      diagnostic?: { step?: string; code?: number | null; status?: number; detail?: string };
+      diagnostic?: {
+        step?: string;
+        code?: number | null;
+        subcode?: number | null;
+        status?: number;
+        type?: string | null;
+        fbtraceId?: string | null;
+        /** Mensagem da Meta já sem valores sensíveis. */
+        metaMessage?: string;
+        /** Apenas host e caminho do redirect_uri usado na troca, sem query. */
+        redirectHost?: string;
+        redirectPath?: string;
+        /** O par ID + chave secreta do app é válido? (só na falha da troca do código) */
+        appCredentialsValid?: boolean | null;
+        detail?: string;
+      };
     };
 
 export interface ConnectionStore {
@@ -50,7 +75,22 @@ export async function completeMetaConnection(
     ]);
   } catch (error) {
     if (error instanceof MetaApiError) {
-      return { ok: false, reason: 'meta', diagnostic: { step, code: error.code, status: error.status } };
+      const appCredentialsValid = step === 'troca_do_codigo' ? await deps.graph.checkAppCredentials() : undefined;
+      return {
+        ok: false,
+        reason: 'meta',
+        diagnostic: {
+          step,
+          code: error.code,
+          subcode: error.subcode,
+          status: error.status,
+          type: error.type,
+          fbtraceId: error.fbtraceId,
+          metaMessage: error.message,
+          ...redirectParts(input.redirectUri),
+          ...(appCredentialsValid === undefined ? {} : { appCredentialsValid }),
+        },
+      };
     }
     throw error;
   }

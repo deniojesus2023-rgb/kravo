@@ -7,12 +7,14 @@ import { createGraph } from '@/lib/meta/graph';
 import { statesMatch, STATE_COOKIE } from '@/lib/meta/oauth';
 import { supabaseConnectionStore } from '@/lib/meta/store';
 import { parseKey } from '@/lib/crypto/secret';
+import { diagnosticParams, failureLogEntry } from '@/lib/meta/diagnostic';
 
 /** Retorno do login. Valida o `state`, conclui a conexão e volta para Integrações com um código de resultado. */
 export async function GET(request: NextRequest) {
   const origin = appOrigin(request);
-  const finish = (code: string) => {
-    const response = NextResponse.redirect(`${origin}/integracoes?meta=${code}`);
+  const finish = (code: string, extra: Record<string, string> = {}) => {
+    const query = new URLSearchParams({ meta: code, ...extra });
+    const response = NextResponse.redirect(`${origin}/integracoes?${query}`);
     response.cookies.delete({ name: STATE_COOKIE, path: '/api/meta' });
     return response;
   };
@@ -41,8 +43,8 @@ export async function GET(request: NextRequest) {
     { userId: user.id, code, redirectUri: metaRedirectUri(origin) },
   );
   if (!result.ok) {
-    // Vai para os logs do servidor (ex.: Vercel). Só etapa, código e status: sem token, segredo ou dados do usuário.
-    console.error(JSON.stringify({ evento: 'meta_conexao_falhou', reason: result.reason, ...result.diagnostic }));
+    // Vai para os logs do servidor (ex.: Vercel). Campos escolhidos, sem token, código do login, state, segredo ou corpo bruto.
+    console.error(JSON.stringify(failureLogEntry(result, env)));
   }
-  return finish(result.ok ? 'ok' : result.reason);
+  return result.ok ? finish('ok') : finish(result.reason, diagnosticParams(result.diagnostic));
 }
