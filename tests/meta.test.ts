@@ -153,8 +153,8 @@ describe('cliente da Graph API', () => {
     });
     const accounts = await graph.adAccounts('t');
     expect(accounts).toEqual([
-      { id: 'act_1', name: 'Conta 1', currency: 'BRL', timezoneName: 'America/Sao_Paulo', accountStatus: 1, businessName: 'BM A' },
-      { id: 'act_2', name: 'Conta 2', currency: 'USD', timezoneName: null, accountStatus: null, businessName: null },
+      { id: 'act_1', name: 'Conta 1', currency: 'BRL', timezoneName: 'America/Sao_Paulo', accountStatus: 1 },
+      { id: 'act_2', name: 'Conta 2', currency: 'USD', timezoneName: null, accountStatus: null },
     ]);
   });
 
@@ -173,7 +173,7 @@ describe('cliente da Graph API', () => {
 });
 
 describe('conclusão da conexão', () => {
-  const account = { id: 'act_1', name: 'Conta 1', currency: 'BRL', timezoneName: 'America/Sao_Paulo', accountStatus: 1, businessName: null };
+  const account = { id: 'act_1', name: 'Conta 1', currency: 'BRL', timezoneName: 'America/Sao_Paulo', accountStatus: 1 };
   const okGraph = (permissions = ['ads_read']): Graph =>
     ({
       exchangeCode: vi.fn(async () => ({ accessToken: 'curto', expiresInSeconds: 3600 })),
@@ -414,5 +414,88 @@ describe('diagnóstico da falha na troca do código', () => {
     const entry = failureLogEntry(base, bad);
     expect(entry).toMatchObject({ formato_app_id_ok: false, formato_chave_secreta_ok: false, usa_config_id: false });
     expect(JSON.stringify(entry)).not.toContain('a1b2c3');
+  });
+});
+
+import { AD_ACCOUNT_FIELDS } from '@/lib/meta/graph';
+
+/**
+ * O login tem só `ads_read`. Qualquer campo que exija outra permissão (ex.: `business`, que exige
+ * business_management) quebra a conexão em produção. Estes testes impedem a volta desse erro.
+ */
+describe('só campos acessíveis com ads_read', () => {
+  const ALLOWED_FIELDS = new Set(['id', 'account_id', 'name', 'currency', 'account_status', 'timezone_name']);
+  const ALLOWED_PATHS = new Set(['/v23.0/oauth/access_token', '/v23.0/me', '/v23.0/me/permissions', '/v23.0/me/adaccounts']);
+  const FORBIDDEN_FIELDS = [
+    'business', 'business_name', 'owner', 'owner_business', 'agency_client_declaration', 'funding_source_details',
+    'business_city', 'business_country_code', 'business_street', 'business_zip', 'tax_id', 'amount_spent', 'balance',
+    'spend_cap', 'users', 'user_tasks', 'email', 'picture', 'accounts', 'businesses',
+  ];
+
+  it('a lista de campos das contas de anúncios é exatamente a permitida', () => {
+    expect([...AD_ACCOUNT_FIELDS].sort()).toEqual([...ALLOWED_FIELDS].sort());
+    for (const field of AD_ACCOUNT_FIELDS) expect(FORBIDDEN_FIELDS).not.toContain(field);
+  });
+
+  /** Simula a Meta e registra tudo o que o app pede, em qualquer etapa do fluxo. */
+  async function runFlow(options: { nameFails?: boolean } = {}) {
+    const urls: URL[] = [];
+    const graph = createGraph(env, async (raw) => {
+      const url = new URL(raw);
+      urls.push(url);
+      switch (url.pathname) {
+        case '/v23.0/oauth/access_token':
+          return jsonResponse(url.searchParams.get('code') ? { access_token: 'curto', expires_in: 3600 } : { access_token: 'longo', expires_in: 5_184_000 });
+        case '/v23.0/me': {
+          const fields = url.searchParams.get('fields');
+          if (fields === 'name' && options.nameFails) {
+            return jsonResponse({ error: { message: '(#10) Application does not have permission for this action', code: 10 } }, 403);
+          }
+          return jsonResponse(fields === 'name' ? { name: 'Ana' } : { id: 'u1' });
+        }
+        case '/v23.0/me/permissions':
+          return jsonResponse({ data: [{ permission: 'ads_read', status: 'granted' }] });
+        case '/v23.0/me/adaccounts':
+          return jsonResponse({ data: [{ id: 'act_1', account_id: '1', name: 'Conta 1', currency: 'BRL', timezone_name: 'America/Sao_Paulo', account_status: 1 }] });
+        default:
+          return jsonResponse({ error: { message: 'rota inesperada', code: 100 } }, 404);
+      }
+    });
+    const save = vi.fn(async () => {});
+    const result = await completeMetaConnection({ graph, store: { save } as ConnectionStore }, { userId: 'u', code: 'cod', redirectUri: 'https://app/cb' });
+    return { urls, result, save };
+  }
+
+  it('o fluxo completo só pede caminhos e campos permitidos, sem expansão nem escopo extra', async () => {
+    const { urls, result } = await runFlow();
+    expect(result.ok).toBe(true);
+    expect(urls.length).toBeGreaterThanOrEqual(5);
+    for (const url of urls) {
+      expect(url.host, url.toString()).toBe('graph.facebook.com');
+      expect(ALLOWED_PATHS.has(url.pathname), url.pathname).toBe(true);
+      expect(url.searchParams.has('scope')).toBe(false);
+      expect(url.searchParams.has('permissions')).toBe(false);
+      const fields = url.searchParams.get('fields');
+      if (fields) {
+        expect(fields, 'sem expansão de campos').not.toMatch(/[{}()]/);
+        for (const f of fields.split(',')) {
+          expect(ALLOWED_FIELDS.has(f), `campo ${f} em ${url.pathname}`).toBe(true);
+          expect(FORBIDDEN_FIELDS).not.toContain(f);
+        }
+      }
+    }
+  });
+
+  it('a chamada das contas pede exatamente os campos da lista', async () => {
+    const { urls } = await runFlow();
+    const accounts = urls.find((u) => u.pathname === '/v23.0/me/adaccounts')!;
+    expect(accounts.searchParams.get('fields')).toBe(AD_ACCOUNT_FIELDS.join(','));
+    expect(accounts.searchParams.get('fields')).not.toContain('business');
+  });
+
+  it('sem public_profile o nome falha, mas a conexão segue (sem nome)', async () => {
+    const { result, save } = await runFlow({ nameFails: true });
+    expect(result.ok).toBe(true);
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ metaUserId: 'u1', metaUserName: null, permissions: ['ads_read'] }));
   });
 });

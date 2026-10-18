@@ -11,7 +11,6 @@ export interface MetaIntegration {
     id: string;
     metaAccountId: string;
     name: string;
-    businessManager: string | null;
     currency: string | null;
     selected: boolean;
   }>;
@@ -30,7 +29,7 @@ export async function readMetaIntegration(supabase: SupabaseClient, now = new Da
 
   const accounts = await supabase
     .from('ad_accounts')
-    .select('id, meta_account_id, name, business_manager, currency, selected')
+    .select('id, meta_account_id, name, currency, selected')
     .eq('meta_connection_id', row.id)
     .order('name');
   if (accounts.error) throw new Error(`Falha ao ler ad_accounts: ${accounts.error.message}`);
@@ -45,7 +44,6 @@ export async function readMetaIntegration(supabase: SupabaseClient, now = new Da
       id: a.id,
       metaAccountId: a.meta_account_id,
       name: a.name,
-      businessManager: a.business_manager,
       currency: a.currency,
       selected: a.selected,
     })),

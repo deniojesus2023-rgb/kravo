@@ -12,7 +12,7 @@
 
 - `ads_read`: ler métricas. É a que a kavro usa.
 - `ads_management`: **não pedir**. A kavro não cria, edita nem pausa anúncios (decisão pendente de confirmação, ver CLAUDE.md).
-- `business_management`: pode ser necessária para listar contas de anúncios de um Business Manager; confirmar na documentação da Meta ao implementar.
+- `business_management`: **não é pedida** e a kavro não usa nenhum campo que a exija. Em produção, pedir `business{name}` em `/me/adaccounts` falhou com "(#100) Requires business_management permission to access the field". Por isso a kavro não mostra o nome do Business Manager de cada conta.
 
 ## Campos do app (Configurações → Básico)
 
@@ -54,3 +54,11 @@ Quando a conexão falha, o servidor registra uma linha JSON `meta_conexao_falhou
 Nunca entram no log: token, código do login, `state`, chave secreta nem o corpo bruto da resposta. A tela de Integrações mostra só etapa, código, subcódigo e status, a partir de listas fixas.
 
 Leitura rápida: `codigo 1` + "Error validating client secret" = chave secreta que não pertence ao app (ou ao ID configurado). `codigo 100` + subcódigo `36008` = `redirect_uri` diferente do usado no diálogo; `36009` = código já usado ou em formato inválido.
+
+## Campos pedidos à Graph API (somente `ads_read`)
+
+- `/me`: `id` (obrigatório) e, em chamada separada e opcional, `name` (depende de `public_profile`; se falhar, a conexão segue sem o nome).
+- `/me/permissions`: sem campos.
+- `/me/adaccounts`: `id, account_id, name, currency, account_status, timezone_name`. Nada de `business`, `owner`, saldos, usuários ou expansão de campos.
+- `tests/meta.test.ts` registra todas as URLs do fluxo e falha se aparecer qualquer campo fora dessa lista, caminho inesperado ou escopo extra. Antes de acrescentar um campo, confira na documentação da Meta se ele exige outra permissão.
+- Não verificado contra a Meta: se `/me/adaccounts` lista também as contas que pertencem a um Business Manager com só `ads_read`. Veja o resultado no primeiro teste real.

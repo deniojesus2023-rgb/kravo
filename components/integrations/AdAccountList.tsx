@@ -49,7 +49,6 @@ export function AdAccountList({ accounts }: { accounts: MetaIntegration['account
                   <span className="text-sm font-medium">{a.name}</span>
                   <span className="num text-xs text-fg-subtle">
                     {a.metaAccountId}
-                    {a.businessManager ? ` · BM ${a.businessManager}` : ''}
                     {` · ${a.currency ?? 'moeda desconhecida'}`}
                   </span>
                   {unsupported && (

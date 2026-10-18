@@ -44,7 +44,6 @@ export function supabaseConnectionStore(admin: SupabaseClient): ConnectionStore 
             meta_connection_id: connectionId,
             meta_account_id: a.id,
             name: a.name,
-            business_manager: a.businessName,
             currency: a.currency,
             timezone_name: a.timezoneName,
             account_status: a.accountStatus,
