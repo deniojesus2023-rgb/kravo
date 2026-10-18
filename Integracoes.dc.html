@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>kavro · Integrações</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F1114}
+.mono{font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #C8F169;outline-offset:2px}
+.side-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;color:#A7ADB5;font-size:14px}
+.side-item:hover{background:#171B20;color:#F5F7F8}
+.side-item.active{background:#1C2127;color:#FFFFFF}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.t-esc{background:#34C78A}
+.t-man{background:#6B737D}
+.t-pau{background:#F16D75}
+.t-ins{background:transparent;border:1px solid #8A9099;box-sizing:border-box}
+.t-warn{background:#E8B75B}
+.pos{color:#34C78A}
+.neg{color:#F16D75}
+.warn{color:#E8B75B}
+.card{background:#1A1E23;border:1px solid #272D33;border-radius:8px}
+.btn{height:34px;padding:0 14px;border:1px solid #30353B;border-radius:8px;background:#1A1E23;color:#F5F7F8;font-size:13px}
+.btn:hover{background:#1F242A}
+.btn-link{height:34px;padding:0 6px;border:0;background:transparent;color:#A7ADB5;font-size:13px;text-decoration:underline}
+.btn-link:hover{color:#F5F7F8}
+.k-l{font-size:13px;color:#A7ADB5}
+.k-s{font-size:12.5px;color:#8A9099}
+.acc{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #272D33;border-radius:8px;background:#15191E}
+.acc input{width:16px;height:16px;accent-color:#C8F169;margin:0}
+.perm{display:inline-flex;align-items:center;height:24px;padding:0 10px;border:1px solid #272D33;border-radius:6px;font-size:12px;color:#A7ADB5}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-wrap:wrap;align-items:stretch;background:#0F1114;color:#F5F7F8;font-family:'Geist',system-ui,sans-serif">
+
+<aside style="flex:1 1 248px;box-sizing:border-box;padding:20px 12px;background:#0F1114;border-right:1px solid #1C2127;display:flex;flex-direction:column;gap:22px">
+  <div style="display:flex;align-items:center;gap:10px;padding:0 10px">
+    <svg width="24" height="24" viewBox="0 0 100 100" aria-hidden="true"><path d="M25 17 V83 M75 17 L28 50 L75 83" fill="none" stroke="#C8F169" stroke-width="11" stroke-linejoin="miter"/></svg>
+    <span style="font-size:22px;font-weight:700;letter-spacing:-0.05em;line-height:1">kavro</span>
+  </div>
+
+  <nav style="display:flex;flex-direction:column;gap:2px">
+    <a class="side-item" href="Main.dc.html">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <span>Visão geral</span>
+    </a>
+    <a class="side-item active" href="Integracoes.dc.html">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M9 3v5M15 3v5M7 8h10v3a5 5 0 0 1-10 0V8zM12 16v5"/></svg>
+      <span>Integrações</span>
+    </a>
+    <a class="side-item" href="Integracoes.dc.html">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+      <span>Configurações</span>
+    </a>
+  </nav>
+
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0 10px">
+      <span style="font-size:12px;color:#8A9099">Ofertas · 10</span>
+      <a href="NovaOferta.dc.html" aria-label="Nova oferta" style="width:24px;height:24px;border:1px solid #272D33;border-radius:6px;color:#A7ADB5;font-size:16px;line-height:22px;text-align:center">+</a>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1px">
+      <sc-for list="{{offers}}" as="o" hint-placeholder-count="10">
+        <a class="side-item" href="Oferta.dc.html">
+          <span class="dot {{o.tone}}"></span>
+          <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{o.name}}</span>
+          <span class="mono" style="font-size:12px;color:#8A9099">{{o.roas}}</span>
+        </a>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="margin-top:auto;border:1px solid #1C2127;border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:4px">
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px"><span class="dot t-esc"></span><span>Meta Ads conectado</span></div>
+    <span style="font-size:12px;color:#8A9099">Sincronizado há 6 min</span>
+  </div>
+</aside>
+
+<main style="flex:999 1 560px;min-width:0;box-sizing:border-box;padding:28px 36px 40px;display:flex;flex-direction:column;gap:24px">
+
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-0.02em">Integrações</h1>
+    <span style="font-size:13px;color:#A7ADB5">Conecte suas contas para a kavro ler gasto, eventos e vendas. Os estados abaixo são exemplos de cada situação.</span>
+  </div>
+
+  <section class="card" style="padding:22px;display:flex;flex-wrap:wrap;gap:28px">
+
+    <div style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <h2 style="margin:0;font-size:18px;font-weight:600">Meta Ads</h2>
+          <span style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500"><span class="dot t-esc"></span>Conectado</span>
+        </div>
+        <span style="font-size:13px;line-height:1.6;color:#A7ADB5">Entrada pelo login oficial da Meta. A kavro não vê sua senha e você pode revogar o acesso a qualquer momento nas configurações do Facebook.</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-top:1px solid #272D33;font-size:13px"><span class="k-l">Conta conectada</span><span>[NOME NO FACEBOOK]</span></div>
+        <div style="display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-top:1px solid #272D33;font-size:13px"><span class="k-l">Última sincronização</span><span class="mono">há 6 min</span></div>
+        <div style="display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-top:1px solid #272D33;font-size:13px"><span class="k-l">Acesso expira em</span><span class="mono warn">28 nov 2026 · 41 dias</span></div>
+        <div style="display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-top:1px solid #272D33;font-size:13px"><span class="k-l">Pixels encontrados</span><span class="mono">3</span></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span class="k-l">Permissões concedidas</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><span class="perm mono">ads_read</span><span class="perm mono">ads_management</span></div>
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn" type="button">Reconectar</button>
+        <button class="btn-link" type="button">Desconectar</button>
+      </div>
+    </div>
+
+    <div style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <h3 style="margin:0;font-size:15px;font-weight:600">Contas de anúncio</h3>
+        <span class="k-s">Escolha quais contas a kavro pode ler. 2 de 3 selecionadas.</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label class="acc"><input type="checkbox" checked><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">Conta de anúncios 01</span><span class="mono k-s">act_[ID] · BM [NOME DA BM]</span></span><span style="font-size:12px;color:#34C78A">Selecionada</span></label>
+        <label class="acc"><input type="checkbox" checked><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">Conta de anúncios 02</span><span class="mono k-s">act_[ID] · BM [NOME DA BM]</span></span><span style="font-size:12px;color:#34C78A">Selecionada</span></label>
+        <label class="acc"><input type="checkbox"><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">Conta de anúncios 03</span><span class="mono k-s">act_[ID] · BM [NOME DA BM]</span></span><span style="font-size:12px;color:#8A9099">Não selecionada</span></label>
+      </div>
+      <span class="k-s" style="line-height:1.6">A kavro lê métricas e envia eventos de conversão. Ela não cria, edita nem pausa anúncios.</span>
+    </div>
+
+  </section>
+
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Plataformas de venda</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
+      <sc-for list="{{platforms}}" as="p" hint-placeholder-count="4">
+        <div class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <span style="font-size:16px;font-weight:600">{{p.name}}</span>
+            <span style="display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:500"><span class="dot {{p.tone}}"></span>{{p.state}}</span>
+          </div>
+          <span style="font-size:13px;line-height:1.55;color:#A7ADB5;min-height:40px">{{p.desc}}</span>
+          <span class="k-s">{{p.meta}}</span>
+          <div><button class="btn" type="button">{{p.action}}</button></div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="font-size:12px;line-height:1.6;color:#8A9099">Cada plataforma tem autenticação, limites de uso e formato de dados próprios. Uma integração só aparece como conectada depois de autorizada e testada com um pedido real.</div>
+
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const T = { esc: 't-esc', man: 't-man', pau: 't-pau', ins: 't-ins' };
+    const rawOffers = [
+      ['Código Metabólico', '2,82x', 'esc'],
+      ['Protocolo Vasos Livres', '3,05x', 'esc'],
+      ['Renda com Crochê', '2,77x', 'esc'],
+      ['Livro de Enoque', '1,86x', 'man'],
+      ['Bíblia dos Moldes', '2,09x', 'man'],
+      ['Receitas Fit 7 Dias', '1,62x', 'ins'],
+      ['Calistenia em Casa', '1,26x', 'man'],
+      ['Jejum Inteligente', '1,21x', 'ins'],
+      ['Ansiedade Zero', '0,78x', 'pau'],
+      ['Inglês em 90 Dias', '0,84x', 'pau']
+    ];
+    const offers = rawOffers.map((r) => ({ name: r[0], roas: r[1], tone: T[r[2]] }));
+
+    const platforms = [
+      { name: 'Kiwify', state: 'Conectado', tone: 't-esc', desc: 'Pedidos aprovados, reembolsos e chargebacks chegam à kavro e entram no cálculo do lucro.', meta: 'Última sincronização há 6 min', action: 'Gerenciar' },
+      { name: 'Hotmart', state: 'Autorização expirada', tone: 't-warn', desc: 'Os pedidos novos pararam de chegar. Reconecte para retomar a leitura de vendas.', meta: 'Última sincronização há 3 dias', action: 'Reconectar' },
+      { name: 'Eduzz', state: 'Não conectado', tone: 't-ins', desc: 'Conecte para cruzar as vendas da Eduzz com o gasto em mídia de cada oferta.', meta: 'Nenhum pedido sincronizado', action: 'Conectar' },
+      { name: 'Shopify', state: 'Não conectado', tone: 't-ins', desc: 'Para ofertas vendidas em loja própria. Lê pedidos, reembolsos e UTMs do checkout.', meta: 'Nenhum pedido sincronizado', action: 'Conectar' }
+    ];
+    return { offers, platforms };
+  }
+}
+</script>
+</body>
+</html>

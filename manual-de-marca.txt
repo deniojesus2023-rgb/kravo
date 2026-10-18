@@ -1,0 +1,143 @@
+Versão 1.0 · 18 de outubro de 2026 · Documento para implementação no Claude
+
+1. Essência e posicionamento
+
+-   Nome: KAVRO (apresentação preferencial no produto: kavro).
+
+-   Categoria: SaaS de gestão, rastreamento e análise de ofertas de tráfego pago.
+
+-   Promessa: centralizar dados de mídia e vendas reais para apoiar decisões por oferta.
+
+-   Slogan: Cada oferta. Uma decisão.
+
+-   Público: gestores de tráfego, infoprodutores e afiliados no Brasil e na América Latina.
+
+-   Personalidade: técnica, objetiva, precisa, confiável, direta, sem exageros.
+
+-   Posicionamento: plataforma de decisão sobre ofertas; não é planilha, nem ferramenta genérica de relatórios.
+
+2. Logo oficial — Monograma K
+
+Símbolo: letra K geométrica, com haste vertical e duas diagonais angulares. O símbolo deve funcionar isoladamente em tamanhos pequenos. Wordmark: “kavro” em caixa baixa, tipografia sans-serif de peso forte, com espaçamento compacto.
+
+Variações entregues: horizontal em fundo escuro, horizontal em fundo claro, monograma escuro, monograma claro e ícone quadrado do aplicativo. SVGs são a fonte vetorial de referência; PNGs são exportações de conveniência.
+
+Observação técnica: o wordmark SVG usa Geist com fallback Arial; para identidade final consistente, instalar Geist e converter a tipografia em contornos no editor vetorial. Os arquivos são estudos implementáveis, não registro de marca.
+
+3. Paleta oficial
+
+-   Fundo principal: #0F1114 — canvas do produto.
+
+-   Superfícies e cards: #1A1E23.
+
+-   Bordas/divisórias: #272D33 ou #30353B.
+
+-   Cor de marca/CTA: #C8F169 — uso contido e intencional.
+
+-   Texto principal: #F5F7F8.
+
+-   Texto secundário: #A7ADB5.
+
+-   Lucro/positivo: #34C78A.
+
+-   Prejuízo/negativo: #F16D75.
+
+-   Atenção: #E8B75B.
+
+Não usar o verde-limão como sinônimo de lucro: a cor de marca é diferente do verde semântico. Garantir contraste legível em estados e gráficos.
+
+4. Tipografia
+
+Geist Sans: títulos, menus, botões, filtros, tabelas e texto de interface. Geist Mono: valores financeiros, CPA, ROAS, datas e métricas; usar numerais tabulares. Fallbacks: Inter/Arial para sans e ui-monospace/monospace para dados.
+
+Escala recomendada: títulos de página 24–28px; títulos de cards 14–16px; KPIs 26–32px; tabelas 12–14px; texto comum 14px. Não reduzir legibilidade para aumentar densidade.
+
+5. Tom de voz e microcopy
+
+-   Landing: “Pare de adivinhar. Comece a decidir.”
+
+-   Subtítulo: “Acompanhe todas as ofertas, veja o lucro real e identifique o próximo movimento.”
+
+-   CTA: “Analisar minhas ofertas”.
+
+-   Alerta: “O CPA aumentou 28% nos últimos 3 dias. Revise a campanha antes de elevar o orçamento.”
+
+-   Estados: “Escalar”, “Manter”, “Pausar” — sempre acompanhados dos critérios que justificam a indicação.
+
+-   Espanhol: “Cada oferta. Una decisión.” / “Deja de adivinar. Empieza a decidir.”
+
+Evitar promessas de lucro garantido, urgência artificial, emojis, linguagem motivacional vazia e certeza indevida sobre recomendações automatizadas.
+
+6. Diretrizes de interface
+
+-   Dark-first: fundo #0F1114, cards #1A1E23, bordas discretas e espaços consistentes.
+
+-   Sidebar com marca e lista de ofertas; selecionar oferta muda o escopo de todos os dados da tela.
+
+-   Visão geral: ofertas lado a lado, gasto, vendas, CPA, ROAS, lucro líquido e reembolsos.
+
+-   Dashboard por oferta: KPIs, gráfico diário de gasto versus receita, funil e tabelas de campanhas/conjuntos/anúncios.
+
+-   Ranking de criativos: CTR, hook rate, CPA e ROAS, com filtros e período claramente visíveis.
+
+-   Estados semânticos com texto além da cor; não usar somente verde/vermelho para informar decisões.
+
+-   Ações recomendadas precisam mostrar fonte, período, critérios e limites dos dados.
+
+-   Usar ícones lineares discretos; sem glassmorphism, gradientes roxos, sombras exageradas ou ilustrações genéricas.
+
+7. Dados, métricas e confiabilidade
+
+-   Conectar Meta Pixel + API de Conversões com deduplicação por event_id quando aplicável.
+
+-   Padronizar UTMs e reconciliar dados de anúncios com pedidos efetivos das plataformas de vendas.
+
+-   Integrações-alvo: Hotmart, Kiwify, Eduzz e Shopify; verificar APIs, autenticação e limites de cada serviço.
+
+-   Lucro líquido deve descontar gasto em mídia, reembolsos, taxas e custos cadastrados; explicitar a fórmula adotada.
+
+-   Exibir moeda, fuso horário, período de atribuição, atraso de sincronização e origem dos números.
+
+-   Não tratar ROAS reportado pela mídia como prova automática de lucro.
+
+-   Tratar divergências e dados ausentes como estados visíveis, sem inventar valores.
+
+8. Componentes e comportamento
+
+-   Botão primário: fundo #C8F169, texto #0F1114, estados hover/focus/disabled.
+
+-   Botão secundário: superfície escura, borda sutil e texto claro.
+
+-   Cards: fundo #1A1E23, cantos discretos e espaçamento regular.
+
+-   Tabelas: cabeçalho fixo quando útil, alinhamento numérico à direita, ordenação e filtros.
+
+-   Gráficos: linhas sólidas e contraste adequado; legenda sempre visível.
+
+-   Alertas: indicar gravidade, motivo, ação recomendada e data de atualização.
+
+-   Responsividade: sidebar recolhível, tabelas com rolagem horizontal e KPIs em grid adaptativo.
+
+-   Acessibilidade: foco visível, navegação por teclado, rótulos e contraste WCAG apropriado.
+
+9. Regras de aplicação da marca
+
+-   Usar logo horizontal em login, landing page e cabeçalho institucional.
+
+-   Usar monograma no menu lateral recolhido, favicon e app.
+
+-   Preservar proporção original e área de respiro mínima equivalente à largura da haste do K.
+
+-   Não esticar, inclinar, sombrear, aplicar gradientes ou alterar a cor arbitrariamente.
+
+-   Para fundos claros, usar versão monocromática grafite.
+
+-   Validar legibilidade do monograma em 16, 24, 32 e 48px antes da exportação final.
+
+10. Instrução pronta para o Claude
+
+Implemente a identidade KAVRO conforme este manual. Preserve o monograma K e o wordmark, use a paleta e as famílias tipográficas definidas, construa uma interface dark-first, responsiva e acessível. Estruture a aplicação com sidebar de ofertas, visão geral, dashboard individual, funil, ranking de criativos e estados de rastreamento. Não invente métricas reais nem alegue integrações concluídas sem autenticação e testes. Para Escalar/Manter/Pausar, apresente critérios explicáveis e estado “Dados insuficientes” quando necessário. Não introduza gradientes, glassmorphism, emojis ou componentes com aparência de template genérico.
+
+11. Entregáveis e validação
+
+O kit contém SVG e PNG das cinco variações e este manual. Antes de lançar, validar disponibilidade de marca/domínio, confirmar licenças de fontes, finalizar os contornos tipográficos e testar legibilidade e contraste em dispositivos reais.
