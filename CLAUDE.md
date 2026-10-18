@@ -9,7 +9,7 @@ Personalidade: técnica, objetiva, precisa, confiável, direta, sem exageros. N�
 
 ## Estado atual
 
-- Só existe **design**. Nada de backend, banco ou integração foi implementado ainda.
+- **Fase 1 (front-end com dados de exemplo)** em andamento: Next.js + Tailwind v4, camada de dados de exemplo em `lib/data/`, regras puras e testadas em `lib/rules/`. Nada de backend, banco, login ou integração foi implementado ainda.
 - Os números das telas em `design/screens/` são **dados de exemplo**. Não os trate como reais.
 - Nunca declare uma integração como concluída sem autenticação real e teste com dados reais.
 - Antes de implementar qualquer tela, leia o arquivo dela em `design/screens/` (layout, textos, dados, estados).
@@ -88,8 +88,8 @@ Dois valores, sempre separados: **ROAS reportado pelo Meta** e **ROAS real** (pe
 
 Precedência: Pausar, depois Dados insuficientes, depois Escalar, depois Manter.
 
-- **Pausar**: lucro negativo com gasto ≥ R$ 2.000, mesmo com poucas vendas.
-- **Dados insuficientes**: menos de 30 vendas no período.
+- **Pausar**: lucro negativo E (gasto ≥ R$ 2.000 OU pelo menos 30 vendas). Com 30 vendas ou mais o prejuízo já está confirmado; com poucas vendas, o gasto mínimo basta.
+- **Dados insuficientes**: menos de 30 vendas no período (inclui prejuízo com poucas vendas e gasto abaixo de R$ 2.000).
 - **Escalar**: ROAS ≥ 2,5x, ao menos 50 vendas e reembolso ≤ 10%.
 - **Manter**: o restante (por exemplo ROAS entre 1,0x e 2,5x).
 
