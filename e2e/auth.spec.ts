@@ -9,7 +9,7 @@ import { expect, test } from '@playwright/test';
  */
 
 test.describe('rotas protegidas', () => {
-  for (const path of ['/', '/ofertas/ansiedade-zero', '/integracoes', '/ofertas/nova']) {
+  for (const path of ['/', '/ofertas/ansiedade-zero', '/integracoes', '/configuracoes', '/ofertas/nova']) {
     test(`${path} sem sessão vai para o login`, async ({ page }) => {
       await page.goto(path);
       await expect(page).toHaveURL(new RegExp(`/login\\?next=${encodeURIComponent(path).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
@@ -50,6 +50,31 @@ test.describe('rotas protegidas', () => {
       expect(response.headers().location).toContain('/login');
     });
   }
+
+  test('app instalável: manifest, service worker e ícones abrem sem login (o iPhone precisa deles antes de entrar)', async ({ request }) => {
+    const manifest = await request.get('/manifest.webmanifest', { maxRedirects: 0 });
+    expect(manifest.status()).toBe(200);
+    expect(await manifest.json()).toMatchObject({ name: 'trakfy', display: 'standalone', theme_color: '#0F1114' });
+    const sw = await request.get('/sw.js', { maxRedirects: 0 });
+    expect(sw.status()).toBe(200);
+    expect(await sw.text()).toContain("addEventListener('push'");
+    for (const icon of ['/icons/icon-192.png', '/icons/icon-512.png', '/apple-icon.png']) {
+      const r = await request.get(icon, { maxRedirects: 0 });
+      expect(r.status(), icon).toBe(200);
+      expect(r.headers()['content-type']).toContain('image/png');
+    }
+  });
+
+  test('agendadores exigem o segredo; o webhook da Kiwify é público mas não revela nada', async ({ request }) => {
+    for (const path of ['/api/jobs/resumo?slot=noite', '/api/jobs/resumo', '/api/jobs/sync-meta', '/api/jobs/sync-vendas']) {
+      expect((await request.get(path, { maxRedirects: 0 })).status(), path).toBe(401);
+      expect((await request.get(path, { maxRedirects: 0, headers: { authorization: 'Bearer errado' } })).status(), path).toBe(401);
+    }
+    const hook = await request.post('/api/webhooks/kiwify/abcdefghijklmnopqrstuvwxyz012345', { data: { qualquer: 'coisa' }, maxRedirects: 0 });
+    expect(hook.status()).not.toBe(307); // não passa pelo login
+    expect([404, 503]).toContain(hook.status()); // desconhecido ou sem a chave de serviço neste ambiente
+    expect(await hook.text()).toBe('');
+  });
 
   test('nenhum dado de oferta vaza antes do login', async ({ request }) => {
     const response = await request.get('/ofertas/protocolo-vasos-livres', { maxRedirects: 0 });

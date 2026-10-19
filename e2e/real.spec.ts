@@ -156,7 +156,10 @@ test.describe('integração com o Meta (sem chaves do app neste ambiente)', () =
     for (const name of ['Kiwify', 'Hotmart', 'Eduzz', 'Shopify']) {
       await expect(page.getByText(name, { exact: true })).toBeVisible();
     }
-    await expect(page.getByRole('button', { name: 'Em breve' })).toHaveCount(4);
+    await expect(page.getByRole('button', { name: 'Em breve' })).toHaveCount(3);
+    // Kiwify tem formulário de conexão (credenciais só no servidor, campo secreto mascarado).
+    await expect(page.getByRole('button', { name: 'Conectar Kiwify' })).toBeVisible();
+    await expect(page.getByLabel('client_secret')).toHaveAttribute('type', 'password');
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
@@ -197,5 +200,26 @@ test.describe('integração com o Meta (sem chaves do app neste ambiente)', () =
     // Mensagens de sucesso nunca mostram detalhe técnico.
     await page.goto('/integracoes?meta=desconectado&etapa=troca_do_codigo&codigo=100');
     await expect(page.locator('main [role="status"]')).not.toContainText('Detalhe técnico');
+  });
+});
+
+test.describe('configurações e notificações (conta real, só leitura)', () => {
+  test('a tela mostra o estado deste aparelho e as preferências, acessível', async ({ page }) => {
+    await login(page);
+    await page.goto('/configuracoes');
+    await expect(page.getByRole('heading', { level: 1, name: 'Configurações' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Notificações neste aparelho' })).toBeVisible();
+    for (const label of ['Venda aprovada', 'Pix gerado', 'Boleto gerado', 'Reembolso', 'Chargeback', 'Manhã, às 08h', 'Tarde, às 14h', 'Noite, às 20h']) {
+      await expect(page.getByLabel(label)).toBeChecked();
+    }
+    await expect(page.getByLabel('Esconder valores em dinheiro nas notificações')).not.toBeChecked();
+    // Sem chaves VAPID neste ambiente a tela avisa; com elas, pede para ativar. Nunca fica em branco.
+    await expect(page.getByText(/Verificando|não estão configuradas|Ativar neste aparelho|não suporta|bloqueadas|instale a trakfy/i).first()).toBeVisible();
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+    }
   });
 });

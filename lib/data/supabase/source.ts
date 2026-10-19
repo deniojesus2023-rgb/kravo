@@ -30,7 +30,7 @@ async function fetchAll<T>(table: string, page: (from: number, to: number) => Pa
   }
 }
 
-const OFFER_COLUMNS = 'id, code, name, sales_platform, price_cents, status, decision_params, ad_account_id';
+const OFFER_COLUMNS = 'id, code, name, sales_platform, price_cents, status, decision_params, ad_account_id, sales_product_id';
 
 export function supabaseSource(supabase: SupabaseClient): DataSource {
   const offerRows = () =>

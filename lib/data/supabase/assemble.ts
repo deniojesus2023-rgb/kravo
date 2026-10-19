@@ -18,6 +18,8 @@ export interface OfferRow {
   status: Offer['status'];
   decision_params: unknown;
   ad_account_id: string | null;
+  /** Produto da plataforma de vendas ligado a esta oferta. Sem ele, nenhum pedido é atribuído a ela. */
+  sales_product_id?: string | null;
 }
 export interface MetricRow {
   offer_id: string;
@@ -163,7 +165,8 @@ export function assembleOfferPeriodData(range: PeriodRange, rows: RawRows): Offe
 
       return {
         offer,
-        salesConnected: rows.salesConnections.some((c) => c.platform === row.sales_platform),
+        // Conectar a plataforma não basta: sem o produto ligado à oferta, nenhum pedido chega a ela e o prejuízo seria falso.
+        salesConnected: rows.salesConnections.some((c) => c.platform === row.sales_platform) && Boolean(row.sales_product_id),
         previous,
         daily,
         sales: salesDaily,
