@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { appOrigin, getMetaEnv, metaRedirectUri } from '@/lib/meta/config';
 import { buildLoginUrl, newState, STATE_COOKIE, STATE_MAX_AGE_SECONDS } from '@/lib/meta/oauth';
 
-/** Início do login com o Facebook. Exige sessão da kavro e guarda um `state` aleatório num cookie. */
+/** Início do login com o Facebook. Exige sessão da trakfy e guarda um `state` aleatório num cookie. */
 export async function GET(request: NextRequest) {
   const origin = appOrigin(request);
   const back = (code: string) => NextResponse.redirect(`${origin}/integracoes?meta=${code}`);

@@ -5,8 +5,8 @@ import { GeistSans } from 'geist/font/sans';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: { default: 'kavro', template: 'kavro · %s' },
-  description: 'Cada oferta. Uma decisão.',
+  title: { default: 'trakfy', template: 'trakfy · %s' },
+  description: 'Rastreie. Analise. Decida.',
 };
 
 export const viewport: Viewport = {

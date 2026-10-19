@@ -9,7 +9,7 @@ export default function DataDeletionPage() {
   return (
     <LegalPage title="Exclusão de dados">
       <P>
-        Você pode pedir a exclusão dos seus dados da kavro a qualquer momento, inclusive os que vieram do Facebook e do
+        Você pode pedir a exclusão dos seus dados da trakfy a qualquer momento, inclusive os que vieram do Facebook e do
         Meta Ads.
       </P>
 
@@ -17,7 +17,7 @@ export default function DataDeletionPage() {
         <UL>
           <li>
             Envie um e-mail para {LEGAL.email} com o assunto "Exclusão de dados", a partir do e-mail cadastrado na sua
-            conta kavro.
+            conta trakfy.
           </li>
           <li>Confirmaremos o pedido e verificaremos que ele vem do titular da conta.</li>
           <li>
@@ -37,7 +37,7 @@ export default function DataDeletionPage() {
 
       <Section title="Remover o acesso do app no Facebook">
         <P>
-          Para impedir que a kavro leia novos dados do Meta Ads, remova o app no Facebook: acesse Configurações e
+          Para impedir que a trakfy leia novos dados do Meta Ads, remova o app no Facebook: acesse Configurações e
           privacidade, depois Configurações, depois Integrações comerciais, escolha o app KRAVO e clique em Remover. Isso
           encerra a autorização; para apagar os dados já guardados, faça o pedido acima.
         </P>

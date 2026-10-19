@@ -12,11 +12,11 @@ import { disconnectMeta, syncMetaNow } from './actions';
 export const metadata: Metadata = { title: 'Integrações' };
 
 const MESSAGES: Record<string, { tone: 'ok' | 'erro'; text: string }> = {
-  ok: { tone: 'ok', text: 'Meta Ads conectado. Escolha abaixo as contas de anúncios que a kavro pode ler.' },
+  ok: { tone: 'ok', text: 'Meta Ads conectado. Escolha abaixo as contas de anúncios que a trakfy pode ler.' },
   desconectado: { tone: 'ok', text: 'Meta Ads desconectado. O acesso foi removido e a credencial foi apagada.' },
   negado: { tone: 'erro', text: 'Você cancelou a autorização no Facebook. Nada foi conectado.' },
   estado_invalido: { tone: 'erro', text: 'A autorização expirou ou não pôde ser confirmada. Tente conectar de novo.' },
-  permissao: { tone: 'erro', text: 'A permissão de leitura de anúncios (ads_read) não foi concedida. Sem ela a kavro não consegue ler suas métricas.' },
+  permissao: { tone: 'erro', text: 'A permissão de leitura de anúncios (ads_read) não foi concedida. Sem ela a trakfy não consegue ler suas métricas.' },
   meta: { tone: 'erro', text: 'A Meta recusou a conexão ou não respondeu. Tente de novo em instantes.' },
   salvar: { tone: 'erro', text: 'Você autorizou, mas não foi possível salvar a conexão. Tente de novo.' },
   nao_configurado: { tone: 'erro', text: 'A conexão com o Meta ainda não está configurada neste ambiente (faltam as chaves do app).' },
@@ -31,7 +31,7 @@ const SYNC_ERRORS: Record<string, string> = {
   limite_da_meta: 'A Meta limitou as consultas por agora. Tente de novo em alguns minutos.',
   meta_erro: 'A Meta recusou ou não respondeu à leitura das métricas. Tente de novo em instantes.',
   banco: 'Não foi possível gravar as métricas agora. Tente de novo.',
-  moeda_nao_suportada: 'A kavro lê só contas em BRL.',
+  moeda_nao_suportada: 'A trakfy lê só contas em BRL.',
 };
 const count = (v: string | undefined) => (v && /^\d{1,6}$/.test(v) ? Number(v) : null);
 
@@ -43,7 +43,7 @@ const STATUS: Record<MetaIntegration['status'], { label: string; dot: string }> 
 };
 
 const PLATFORMS = [
-  { name: 'Kiwify', desc: 'Pedidos aprovados, reembolsos e chargebacks chegam à kavro e entram no cálculo do lucro.' },
+  { name: 'Kiwify', desc: 'Pedidos aprovados, reembolsos e chargebacks chegam à trakfy e entram no cálculo do lucro.' },
   { name: 'Hotmart', desc: 'Lê pedidos aprovados, reembolsos e chargebacks para cruzar com o gasto em mídia de cada oferta.' },
   { name: 'Eduzz', desc: 'Conecte para cruzar as vendas da Eduzz com o gasto em mídia de cada oferta.' },
   { name: 'Shopify', desc: 'Para ofertas vendidas em loja própria. Lê pedidos, reembolsos e UTMs do checkout.' },
@@ -84,7 +84,7 @@ export default async function IntegrationsPage({
       <div className="flex flex-col gap-1.5">
         <h1 className="m-0 text-[26px] font-semibold tracking-[-0.02em]">Integrações</h1>
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-fg-muted">
-          <span>Conecte suas contas para a kavro ler gasto, eventos e vendas.</span>
+          <span>Conecte suas contas para a trakfy ler gasto, eventos e vendas.</span>
           {context.isSample && <SampleDataTag />}
         </span>
       </div>
@@ -127,7 +127,7 @@ export default async function IntegrationsPage({
               </span>
             </div>
             <span className="text-[13px] leading-relaxed text-fg-muted">
-              Entrada pelo login oficial da Meta. A kavro não vê sua senha e você pode revogar o acesso a qualquer momento nas
+              Entrada pelo login oficial da Meta. A trakfy não vê sua senha e você pode revogar o acesso a qualquer momento nas
               configurações do Facebook.
             </span>
           </div>
@@ -202,7 +202,7 @@ export default async function IntegrationsPage({
               <p className="m-0 text-[13px] leading-relaxed text-fg-muted">
                 {meta.status === 'desconectado'
                   ? 'O acesso foi removido ou expirou. Conecte de novo para retomar a leitura.'
-                  : 'Conecte sua conta do Facebook para a kavro ler as métricas das suas campanhas.'}
+                  : 'Conecte sua conta do Facebook para a trakfy ler as métricas das suas campanhas.'}
               </p>
               <div>
                 <a
@@ -224,7 +224,7 @@ export default async function IntegrationsPage({
             <p className="m-0 text-[13px] text-fg-muted">As contas aparecem aqui depois que você conectar o Meta Ads.</p>
           )}
           <span className="text-xs leading-relaxed text-fg-subtle">
-            A kavro lê métricas e envia eventos de conversão. Ela não cria, edita nem pausa anúncios.
+            A trakfy lê métricas e envia eventos de conversão. Ela não cria, edita nem pausa anúncios.
           </span>
         </div>
       </section>

@@ -67,7 +67,7 @@ export function SidebarContent({ offers, meta, isSample, user }: SidebarData) {
 
   return (
     <div className="flex flex-1 flex-col gap-[22px]">
-      <Link href="/" aria-label="kavro, Visão geral" className="px-2.5">
+      <Link href="/" aria-label="trakfy, Visão geral" className="px-2.5">
         <Logo />
       </Link>
 

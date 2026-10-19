@@ -18,7 +18,7 @@ export async function setAdAccountSelected(id: string, selected: boolean): Promi
   if (selected) {
     const { data } = await supabase.from('ad_accounts').select('currency').eq('id', id).maybeSingle();
     if (!data) return { error: 'Conta não encontrada.' };
-    if (data.currency !== 'BRL') return { error: 'A kavro calcula em BRL e ainda não lê contas em outra moeda.' };
+    if (data.currency !== 'BRL') return { error: 'A trakfy calcula em BRL e ainda não lê contas em outra moeda.' };
   }
   // A RLS garante que só a conta do próprio usuário é alterada; o GRANT só permite a coluna `selected`.
   const { error } = await supabase.from('ad_accounts').update({ selected }).eq('id', id);

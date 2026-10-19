@@ -1,4 +1,4 @@
-# Arquitetura inicial da kavro
+# Arquitetura inicial da trakfy
 
 Proposta de partida. Confirmar antes de implementar.
 

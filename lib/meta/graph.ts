@@ -44,7 +44,7 @@ export function redactMessage(message: string, secrets: string[]): string {
 }
 
 /**
- * Campos que a kavro pede à Graph API. O login só tem `ads_read`, então nenhum campo pode exigir outra
+ * Campos que a trakfy pede à Graph API. O login só tem `ads_read`, então nenhum campo pode exigir outra
  * permissão. Em especial, `business` (nome do Business Manager) exige `business_management` e fica de fora.
  * Há um teste que impede a volta de campos fora desta lista.
  */
@@ -246,7 +246,7 @@ export function createGraph(env: MetaEnv, fetcher: FetchLike = fetch as FetchLik
           signal: AbortSignal.timeout(15_000),
         });
       } catch {
-        // Revogar é um esforço extra: a kavro apaga o token de qualquer jeito.
+        // Revogar é um esforço extra: a trakfy apaga o token de qualquer jeito.
       }
     },
   };

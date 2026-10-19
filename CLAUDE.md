@@ -1,7 +1,9 @@
-# kavro
+# trakfy
+
+> Marca renomeada de kavro para **TRAKFY** (manual: `brand/TRAKFY_Manual_de_Marca.docx`). Nomes técnicos que ainda dizem `kavro` (cookie `kavro_meta_state`, `package.json`, migrações, pasta `kavro-handoff`) foram preservados de propósito. Não renomear sem pedido.
 
 SaaS de gestão, rastreamento e análise de ofertas de tráfego pago.
-Slogan: **Cada oferta. Uma decisão.** (es: Cada oferta. Una decisión.)
+Slogan: **Rastreie. Analise. Decida.**
 
 Público: gestores de tráfego, infoprodutores e afiliados no Brasil e na América Latina.
 Promessa: centralizar dados de mídia e vendas reais para decidir, oferta por oferta, o que escalar, manter ou pausar.
@@ -19,7 +21,7 @@ Personalidade: técnica, objetiva, precisa, confiável, direta, sem exageros. N�
 ## Leia nesta ordem
 
 1. Este arquivo.
-2. `brand/manual-de-marca.txt` (marca, paleta, tipografia, tom de voz).
+2. `brand/TRAKFY_Manual_de_Marca.docx` (marca, paleta, tipografia, tom de voz). O antigo `brand/manual-de-marca.txt` (kavro) é só histórico.
 3. `design/README.md` e `design/screens/*.dc.html`.
 4. `docs/arquitetura.md` (modelo de dados e integrações).
 
@@ -45,7 +47,7 @@ Todas compartilham a mesma sidebar (marca, navegação, lista de ofertas com ROA
 
 ## Marca
 
-- Logo: monograma K (haste vertical + duas diagonais) e wordmark "kavro" em caixa baixa. Arquivos em `brand/`.
+- Logo: monograma Original (duas peças encaixadas, esquerda branca e direita verde-lima) e wordmark "trakfy" em caixa baixa. Arquivos em `brand/` (SVGs são reconstrução vetorial aproximada da opção 01; conferir antes de publicar).
 - Horizontal no login, landing e cabeçalho institucional. Monograma no menu recolhido, favicon e app.
 - Área de respiro mínima: largura da haste do K. Não esticar, inclinar, sombrear, aplicar gradiente nem recolorir.
 - Fundo claro: usar versão monocromática grafite.
@@ -125,7 +127,7 @@ Todo alerta mostra gravidade, motivo, ação recomendada e data de atualização
 - Tokens criptografados, nunca em log, nunca no front-end.
 - Isolamento por usuário em todas as tabelas (RLS).
 - Respeitar LGPD: exclusão de dados sob pedido.
-- A kavro só lê métricas e envia eventos. Não cria, edita nem pausa anúncios.
+- A trakfy só lê métricas e envia eventos. Não cria, edita nem pausa anúncios.
 
 ## Como trabalhar
 
