@@ -37,7 +37,16 @@ const loadPeriod = cache(async (period: PeriodId) => {
   const data = await source.offerPeriodData(range);
   const summaries = data
     .map((d) => summarizeOffer(d, range))
-    .sort((a, b) => b.netProfitCents - a.netProfitCents || a.offer.name.localeCompare(b.offer.name, 'pt-BR'));
+    // Com vendas conectadas primeiro, por lucro. Sem vendas, o lucro é desconhecido: vão depois, por gasto.
+    .sort((a, b) =>
+      a.salesConnected !== b.salesConnected
+        ? a.salesConnected
+          ? -1
+          : 1
+        : a.salesConnected
+          ? b.netProfitCents - a.netProfitCents || a.offer.name.localeCompare(b.offer.name, 'pt-BR')
+          : b.spendCents - a.spendCents || a.offer.name.localeCompare(b.offer.name, 'pt-BR'),
+    );
   return { source, range, data, summaries };
 });
 
@@ -60,9 +69,13 @@ export async function getOverview(period: PeriodId): Promise<Overview | null> {
   const { source, range, data, summaries } = loaded;
   const sum = (pick: (o: OfferSummary) => number) => summaries.reduce((acc, o) => acc + pick(o), 0);
   const spendCents = sum((o) => o.spendCents);
-  const approvedRevenueCents = sum((o) => o.approvedRevenueCents);
-  const refundedCents = sum((o) => o.refundedCents);
-  const sales = sum((o) => o.sales);
+  // Lucro e ROAS real do portfólio só entram com ofertas que têm plataforma de vendas conectada.
+  const withSales = summaries.filter((o) => o.salesConnected);
+  const sumKnown = (pick: (o: OfferSummary) => number) => withSales.reduce((acc, o) => acc + pick(o), 0);
+  const approvedRevenueCents = sumKnown((o) => o.approvedRevenueCents);
+  const refundedCents = sumKnown((o) => o.refundedCents);
+  const sales = sumKnown((o) => o.sales);
+  const spendWithSalesCents = sumKnown((o) => o.spendCents);
   return {
     period: range,
     offers: summaries,
@@ -71,12 +84,18 @@ export async function getOverview(period: PeriodId): Promise<Overview | null> {
       approvedRevenueCents,
       refundedCents,
       sales,
-      netProfitCents: netProfitCents({ approvedRevenueCents, refundedCents, adSpendCents: spendCents }),
-      roasReal: roas(approvedRevenueCents, spendCents),
-      cpaCents: cpaCents(spendCents, sales),
-      refundRate: refundRate(refundedCents, approvedRevenueCents),
+      netProfitCents: netProfitCents({ approvedRevenueCents, refundedCents, adSpendCents: spendWithSalesCents }),
+      roasReal: withSales.length > 0 ? roas(approvedRevenueCents, spendWithSalesCents) : null,
+      cpaCents: withSales.length > 0 ? cpaCents(spendWithSalesCents, sales) : null,
+      refundRate: withSales.length > 0 ? refundRate(refundedCents, approvedRevenueCents) : null,
+      spendWithSalesCents,
+      offersWithoutSales: summaries.length - withSales.length,
     },
-    deltas: source.portfolioDeltas(data),
+    // Com ofertas sem vendas conectadas, receita, lucro e ROAS do portfólio não têm base comparável.
+    deltas:
+      summaries.length - withSales.length > 0
+        ? { ...source.portfolioDeltas(data), revenue: null, profit: null, roas: null }
+        : source.portfolioDeltas(data),
     alerts: await source.alerts(),
   };
 }

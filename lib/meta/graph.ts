@@ -1,4 +1,5 @@
 import { appSecretProof } from './oauth';
+import { ATTRIBUTION_WINDOW, CAMPAIGN_FIELDS, INSIGHT_FIELDS, type InsightRow, type MetaCampaign } from './insights';
 import type { MetaEnv } from './config';
 
 export class MetaApiError extends Error {
@@ -96,6 +97,19 @@ export function createGraph(env: MetaEnv, fetcher: FetchLike = fetch as FetchLik
     return body;
   }
 
+  /** Percorre as páginas de uma listagem (cursor `after`), com teto de páginas por segurança. */
+  async function pages<T>(path: string, params: Record<string, string>, token: string): Promise<T[]> {
+    const out: T[] = [];
+    let current: Record<string, string> | null = params;
+    for (let guard = 0; current && guard < 50; guard += 1) {
+      const r: { data?: T[]; paging?: { cursors?: { after?: string }; next?: string } } = await call(path, current, token);
+      out.push(...(r.data ?? []));
+      const after = r.paging?.next ? r.paging.cursors?.after : undefined;
+      current = after ? { ...current, after } : null;
+    }
+    return out;
+  }
+
   const tokenOf = (r: { access_token?: string; expires_in?: number }): TokenInfo => {
     if (!r.access_token) throw new MetaApiError('A Meta não devolveu um token.', null, 200);
     return { accessToken: r.access_token, expiresInSeconds: r.expires_in };
@@ -173,6 +187,27 @@ export function createGraph(env: MetaEnv, fetcher: FetchLike = fetch as FetchLik
         params = after ? { ...params, after } : null;
       }
       return out;
+    },
+
+    /** Campanhas da conta (nome, estado e orçamento diário). `accountId` no formato `act_123`. */
+    async campaigns(token: string, accountId: string): Promise<MetaCampaign[]> {
+      return pages<MetaCampaign>(`/${accountId}/campaigns`, { fields: CAMPAIGN_FIELDS.join(','), limit: '500' }, token);
+    },
+
+    /** Métricas por campanha e por dia, de `since` a `until` (inclusive), com a janela de atribuição fixa. */
+    async campaignInsights(token: string, accountId: string, since: string, until: string): Promise<InsightRow[]> {
+      return pages<InsightRow>(
+        `/${accountId}/insights`,
+        {
+          level: 'campaign',
+          time_increment: '1',
+          time_range: JSON.stringify({ since, until }),
+          fields: INSIGHT_FIELDS.join(','),
+          action_attribution_windows: JSON.stringify([ATTRIBUTION_WINDOW]),
+          limit: '500',
+        },
+        token,
+      );
     },
 
     /** Revoga as permissões do app no Facebook (usado ao desconectar). */

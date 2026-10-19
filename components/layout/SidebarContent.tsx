@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { ActionDot } from '@/components/ui/ActionBadge';
 import { Logo } from '@/components/ui/Logo';
 import { SampleDataTag } from '@/components/ui/SampleDataTag';
-import { formatRoas } from '@/lib/format';
+import { formatAge, formatRoas } from '@/lib/format';
 import { ACTION_LABELS, type OfferAction } from '@/lib/rules';
 import { cn } from '@/lib/cn';
 import { signOut } from '@/app/(auth)/actions';
@@ -13,7 +13,7 @@ import type { ConnectionStatus } from '@/lib/data';
 
 export interface SidebarData {
   offers: Array<{ id: string; name: string; roas: number | null; action: OfferAction }>;
-  meta: { status: ConnectionStatus; delayMinutes: number | null };
+  meta: { status: ConnectionStatus; delayMinutes: number | null; syncFailed?: boolean };
   isSample: boolean;
   /** Usuário logado. `null` quando a autenticação não está configurada. */
   user: { email: string } | null;
@@ -121,7 +121,11 @@ export function SidebarContent({ offers, meta, isSample, user }: SidebarData) {
           <span>{META_LABEL[meta.status]}</span>
         </div>
         <span className="text-xs text-fg-subtle">
-          {meta.delayMinutes === null ? 'Nenhuma sincronização ainda' : `Sincronizado há ${meta.delayMinutes} min`}
+          {meta.delayMinutes === null
+            ? 'Nenhuma sincronização ainda'
+            : meta.syncFailed
+              ? `Última sincronização falhou, há ${formatAge(meta.delayMinutes)}`
+              : `Sincronizado há ${formatAge(meta.delayMinutes)}`}
         </span>
         {isSample && (
           <span className="mt-1">

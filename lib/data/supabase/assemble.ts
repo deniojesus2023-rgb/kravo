@@ -69,6 +69,8 @@ export interface RawRows {
   campaignSales: CampaignSalesRow[];
   adsets: Array<{ id: string; campaign_id: string }>;
   ads: Array<{ adset_id: string }>;
+  /** Conexões de vendas ativas (`status = conectado`): decidem se receita e lucro são conhecidos. */
+  salesConnections: Array<{ platform: SalesPlatform }>;
 }
 
 const num = (v: unknown) => Number(v ?? 0);
@@ -161,6 +163,7 @@ export function assembleOfferPeriodData(range: PeriodRange, rows: RawRows): Offe
 
       return {
         offer,
+        salesConnected: rows.salesConnections.some((c) => c.platform === row.sales_platform),
         previous,
         daily,
         sales: salesDaily,

@@ -153,7 +153,7 @@ export function buildOfferPeriodData(seed: OfferSeed): OfferPeriodData {
   const profit = revenueCents - refundedCents - seed.spendCents;
   const deltas: PeriodDeltas = designed?.deltas ?? generatedDeltas(rng, profit);
 
-  return { offer, previous: null, daily, sales, campaigns, adsetCount, adCount, deltas };
+  return { offer, salesConnected: true, previous: null, daily, sales, campaigns, adsetCount, adCount, deltas };
 }
 
 function generatedDeltas(rng: () => number, profit: number): PeriodDeltas {

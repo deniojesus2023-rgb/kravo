@@ -77,6 +77,18 @@ describe('Manter', () => {
   });
 });
 
+describe('sem plataforma de vendas conectada', () => {
+  it('nunca indica Pausar nem Escalar: sem pedidos, lucro e ROAS real são desconhecidos', () => {
+    const loss = { adSpendCents: 900_000, sales: 0, netProfitCents: -900_000, roas: 0, refundRate: null, salesConnected: false };
+    expect(decideOfferAction(loss).action).toBe('dados_insuficientes');
+    expect(decideOfferAction({ ...base, salesConnected: false }).action).toBe('dados_insuficientes');
+    // O mesmo prejuízo, com vendas conectadas, continua sendo Pausar.
+    expect(decideOfferAction({ ...loss, salesConnected: true }).action).toBe('pausar');
+    // Sem informar, vale como conectado (comportamento anterior).
+    expect(decideOfferAction({ ...loss, salesConnected: undefined }).action).toBe('pausar');
+  });
+});
+
 describe('critérios explicáveis', () => {
   it('Escalar lista ROAS, vendas e reembolso com o resultado de cada um', () => {
     const { criteria } = decideOfferAction(base);

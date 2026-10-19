@@ -44,6 +44,11 @@ export interface ActionInput {
   roas: number | null;
   /** Fração. `null` quando não há receita. */
   refundRate: number | null;
+  /**
+   * Há uma plataforma de vendas conectada para a oferta? Sem ela a receita é DESCONHECIDA (não zero):
+   * lucro e ROAS real não existem e nenhuma ação pode ser indicada. Padrão: verdadeiro.
+   */
+  salesConnected?: boolean;
 }
 
 export type CriterionUnit = 'x' | 'count' | 'percent' | 'money';
@@ -90,6 +95,15 @@ export function decideOfferAction(
   input: ActionInput,
   params: DecisionParams = DEFAULT_DECISION_PARAMS,
 ): ActionDecision {
+  // Sem pedidos reais não há lucro nem ROAS real: "Pausar" por um prejuízo que é só falta de dado seria inventar.
+  if (input.salesConnected === false) {
+    return {
+      action: 'dados_insuficientes',
+      criteria: [],
+      note: 'Esta oferta não tem plataforma de vendas conectada. Sem os pedidos, o lucro líquido e o ROAS real não podem ser calculados.',
+    };
+  }
+
   const loss = criterion('netProfit', 'Lucro líquido', input.netProfitCents, 'money', '<', 0);
   const pauseSpend = criterion('adSpend', 'Gasto', input.adSpendCents, 'money', '>=', params.pauseMinSpendCents);
   const pauseSales = criterion('sales', 'Vendas no período', input.sales, 'count', '>=', params.pauseMinSales);

@@ -38,6 +38,9 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const total = overview?.offers.length ?? 0;
   const testing = overview?.offers.filter((o) => o.offer.status === 'em_teste').length ?? 0;
   const noMovement = overview && overview.totals.spendCents === 0 && overview.totals.sales === 0;
+  // Nenhuma oferta com vendas conectadas: faturamento, lucro e ROAS real são desconhecidos, não zero.
+  const salesUnknown = overview !== null && overview.totals.offersWithoutSales === overview.offers.length;
+  const withoutSales = overview?.totals.offersWithoutSales ?? 0;
 
   return (
     <>
@@ -84,22 +87,48 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
             </section>
           )}
 
+          {withoutSales > 0 && (
+            <section className="card px-[18px] py-3.5 text-[13.5px] text-fg-muted" aria-label="Aviso sobre vendas">
+              {withoutSales === 1 ? '1 oferta ainda não tem' : `${withoutSales} ofertas ainda não têm`} plataforma de vendas conectada.
+              Para elas só o gasto aparece: lucro líquido, ROAS real e a indicação de Escalar, Manter ou Pausar dependem dos
+              pedidos reais e não são calculados. Nada foi estimado.
+            </section>
+          )}
+
           <section aria-label="Indicadores do portfólio" className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-4">
             <Kpi label="Gasto" value={formatBRL(overview.totals.spendCents)}>
               <Delta value={overview.deltas.spend} polarity="neutral" /> {overview.period.comparisonLabel}
             </Kpi>
-            <Kpi label="Faturamento" value={formatBRL(overview.totals.approvedRevenueCents)}>
-              <Delta value={overview.deltas.revenue} polarity="higher-is-better" /> {overview.period.comparisonLabel}
+            <Kpi label="Faturamento" value={salesUnknown ? '—' : formatBRL(overview.totals.approvedRevenueCents)}>
+              {salesUnknown ? (
+                'Sem plataforma de vendas conectada'
+              ) : (
+                <>
+                  <Delta value={overview.deltas.revenue} polarity="higher-is-better" /> {overview.period.comparisonLabel}
+                </>
+              )}
             </Kpi>
             <Kpi
               label="Lucro líquido"
-              value={formatBRL(overview.totals.netProfitCents)}
-              valueClass={overview.totals.netProfitCents < 0 ? 'text-loss' : 'text-fg'}
+              value={salesUnknown ? '—' : formatBRL(overview.totals.netProfitCents)}
+              valueClass={!salesUnknown && overview.totals.netProfitCents < 0 ? 'text-loss' : 'text-fg'}
             >
-              <Delta value={overview.deltas.profit} polarity="higher-is-better" /> {overview.period.comparisonLabel}
+              {salesUnknown ? (
+                'Sem plataforma de vendas conectada'
+              ) : (
+                <>
+                  <Delta value={overview.deltas.profit} polarity="higher-is-better" /> {overview.period.comparisonLabel}
+                </>
+              )}
             </Kpi>
-            <Kpi label="ROAS real" value={formatRoas(overview.totals.roasReal)}>
-              <Delta value={overview.deltas.roas} polarity="higher-is-better" /> {overview.period.comparisonLabel}
+            <Kpi label="ROAS real" value={salesUnknown ? '—' : formatRoas(overview.totals.roasReal)}>
+              {salesUnknown ? (
+                'Sem plataforma de vendas conectada'
+              ) : (
+                <>
+                  <Delta value={overview.deltas.roas} polarity="higher-is-better" /> {overview.period.comparisonLabel}
+                </>
+              )}
             </Kpi>
           </section>
 

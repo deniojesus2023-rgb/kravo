@@ -20,11 +20,14 @@ export function summarizeOffer(data: OfferPeriodData, period: PeriodRange): Offe
   const metaPurchaseValueCents = sum(data.daily, (d) => d.metaPurchaseValueCents);
 
   const profit = netProfitCents({ approvedRevenueCents, refundedCents, adSpendCents: spendCents });
-  const roasReal = roas(approvedRevenueCents, spendCents);
-  const rate = refundRate(refundedCents, approvedRevenueCents);
+  // Sem plataforma de vendas a receita é desconhecida: nada de ROAS real, reembolso ou ticket "zerados".
+  const known = data.salesConnected;
+  const roasReal = known ? roas(approvedRevenueCents, spendCents) : null;
+  const rate = known ? refundRate(refundedCents, approvedRevenueCents) : null;
 
   return {
     offer: data.offer,
+    salesConnected: known,
     period,
     spendCents,
     approvedRevenueCents,
@@ -35,11 +38,11 @@ export function summarizeOffer(data: OfferPeriodData, period: PeriodRange): Offe
     roasMeta: roas(metaPurchaseValueCents, spendCents),
     metaPurchases,
     metaPurchaseValueCents,
-    cpaCents: cpaCents(spendCents, sales),
-    ticketCents: averageTicketCents(approvedRevenueCents, sales),
+    cpaCents: known ? cpaCents(spendCents, sales) : null,
+    ticketCents: known ? averageTicketCents(approvedRevenueCents, sales) : null,
     refundRate: rate,
     decision: decideOfferAction(
-      { adSpendCents: spendCents, sales, netProfitCents: profit, roas: roasReal, refundRate: rate },
+      { adSpendCents: spendCents, sales, netProfitCents: profit, roas: roasReal, refundRate: rate, salesConnected: known },
       data.offer.decisionParams,
     ),
     deltas: data.deltas,
