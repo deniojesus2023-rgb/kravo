@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createKiwify } from '@/lib/kiwify/client';
 import { runKiwifySync } from '@/lib/kiwify/run';
 import { kiwifyUsers, supabaseKiwifyRunDb } from '@/lib/kiwify/store';
+import { orderNotifier } from '@/lib/notifications/notifier';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const maxDuration = 300;
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
   for (const userId of await kiwifyUsers(admin)) {
     users += 1;
     try {
-      const outcome = await runKiwifySync({ userId, kiwify, db });
+      const outcome = await runKiwifySync({ userId, kiwify, db, notify: orderNotifier(admin) });
       if (outcome.ok) ok += 1;
       else failed += 1;
     } catch {

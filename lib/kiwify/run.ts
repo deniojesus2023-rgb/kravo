@@ -1,5 +1,6 @@
 import { saoPauloDate } from '@/lib/data/dates';
 import { KiwifyApiError, type Kiwify, type KiwifyCredentials } from './client';
+import type { OrderEvent } from '@/lib/notifications/events';
 import { syncKiwifySales, type OrderStore } from './sync';
 
 /** Códigos curtos e fixos: são o que vai para sync_runs.error e para a tela. Nunca a mensagem da Kiwify. */
@@ -37,6 +38,8 @@ export async function runKiwifySync(opts: {
   db: KiwifyRunDb;
   now?: Date;
   minIntervalSeconds?: number;
+  /** Recebe os avisos detectados. Uma falha aqui nunca derruba a leitura de vendas. */
+  notify?: (userId: string, events: OrderEvent[]) => Promise<unknown>;
 }): Promise<KiwifySyncOutcome> {
   const { userId, kiwify, db } = opts;
   const now = opts.now ?? new Date();
@@ -58,9 +61,11 @@ export async function runKiwifySync(opts: {
       auth: { token: accessToken, accountId: connection.credentials.accountId },
       today: saoPauloDate(now),
       lastSyncedAt: connection.lastSyncedAt,
+      now,
     });
     await db.markSynced(userId, connection.id, startedAt);
     await db.recordRun(userId, { startedAt, finishedAt: new Date().toISOString(), ok: true, error: null });
+    if (opts.notify && result.events.length > 0) await opts.notify(userId, result.events).catch(() => undefined);
     return { ok: true, fetched: result.fetched, saved: result.saved, semOferta: result.semOferta };
   } catch (error) {
     const code = kiwifyErrorCode(error);

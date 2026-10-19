@@ -13,6 +13,7 @@ import { createKiwify, KiwifyApiError } from '@/lib/kiwify/client';
 import { runKiwifySync } from '@/lib/kiwify/run';
 import { openKiwifySecret, sealKiwifySecret, supabaseKiwifyRunDb } from '@/lib/kiwify/store';
 import { hashWebhookSecret, newWebhookSecret } from '@/lib/kiwify/webhook';
+import { orderNotifier } from '@/lib/notifications/notifier';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
@@ -173,7 +174,7 @@ export async function connectKiwify(data: FormData): Promise<void> {
   if (saved.error) redirect('/integracoes?kiwify=erro');
 
   const db = supabaseKiwifyRunDb(admin);
-  after(() => runKiwifySync({ userId: user.id, kiwify, db }).catch(() => undefined));
+  after(() => runKiwifySync({ userId: user.id, kiwify, db, notify: orderNotifier(admin) }).catch(() => undefined));
   revalidatePath('/', 'layout');
   redirect(`/integracoes?kiwify=${webhookId ? 'ok' : 'ok_sem_webhook'}`);
 }
@@ -218,7 +219,7 @@ export async function syncKiwifyNow(): Promise<void> {
 
   let target: string;
   try {
-    const outcome = await runKiwifySync({ userId: user.id, kiwify: createKiwify(), db: supabaseKiwifyRunDb(admin), minIntervalSeconds: 120 });
+    const outcome = await runKiwifySync({ userId: user.id, kiwify: createKiwify(), db: supabaseKiwifyRunDb(admin), minIntervalSeconds: 120, notify: orderNotifier(admin) });
     target = outcome.ok
       ? `/integracoes?ksync=ok&kf=${outcome.fetched}&ks=${outcome.saved}&kn=${outcome.semOferta}`
       : `/integracoes?ksync=erro&kcodigo=${outcome.code}`;

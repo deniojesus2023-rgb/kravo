@@ -7,6 +7,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: { default: 'trakfy', template: 'trakfy · %s' },
   description: 'Rastreie. Analise. Decida.',
+  appleWebApp: { capable: true, title: 'trakfy', statusBarStyle: 'black' },
 };
 
 export const viewport: Viewport = {

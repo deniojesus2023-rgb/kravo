@@ -7,6 +7,9 @@ export type OrderStatus = 'pendente' | 'aprovado' | 'reembolsado' | 'chargeback'
 export interface MappedOrder {
   platformOrderId: string;
   productId: string | null;
+  paymentMethod: PaymentMethod | null;
+  /** Quando a Kiwify criou a venda (Pix e boleto gerados ainda não têm aprovação). */
+  createdAt: string | null;
   status: OrderStatus;
   amountCents: number;
   refundedCents: number;
@@ -14,6 +17,8 @@ export interface MappedOrder {
   refundedAt: string | null;
   utm: { source: string | null; medium: string | null; campaign: string | null; content: string | null; term: string | null };
 }
+
+export type PaymentMethod = 'pix' | 'boleto' | 'cartao' | 'outro';
 
 export type SkipReason = 'sem_id' | 'moeda' | 'sem_valor' | 'status_desconhecido' | 'data_invalida';
 
@@ -29,6 +34,12 @@ const text = (value: unknown): string | null => {
   if (typeof value !== 'string') return null;
   const v = value.trim();
   return v ? v.slice(0, 300) : null;
+};
+
+const paymentMethodOf = (value: unknown): PaymentMethod | null => {
+  if (typeof value !== 'string' || !value) return null;
+  if (value === 'pix' || value === 'boleto') return value;
+  return value === 'credit_card' ? 'cartao' : 'outro';
 };
 
 const PENDING = new Set(['pending', 'processing', 'waiting_payment', 'authorized']);
@@ -81,6 +92,8 @@ export function mapSale(sale: KiwifySale): MapResult {
     order: {
       platformOrderId: id,
       productId: text(sale.product?.id),
+      paymentMethod: paymentMethodOf(sale.payment_method),
+      createdAt: created,
       amountCents,
       ...mapped,
       utm: { source: text(t.utm_source), medium: text(t.utm_medium), campaign: text(t.utm_campaign), content: text(t.utm_content), term: text(t.utm_term) },

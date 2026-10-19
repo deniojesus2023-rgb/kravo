@@ -6,7 +6,7 @@
 export const KIWIFY_BASE = 'https://public-api.kiwify.com/v1';
 
 /** Eventos que a trakfy escuta. O webhook só avisa; os dados vêm de `GET /sales`. */
-export const WEBHOOK_TRIGGERS = ['compra_aprovada', 'compra_reembolsada', 'chargeback', 'subscription_renewed'] as const;
+export const WEBHOOK_TRIGGERS = ['compra_aprovada', 'pix_gerado', 'boleto_gerado', 'compra_reembolsada', 'chargeback', 'subscription_renewed'] as const;
 
 export class KiwifyApiError extends Error {
   constructor(
@@ -42,6 +42,7 @@ export interface KiwifySale {
   updated_at?: string;
   approved_date?: string | null;
   refunded_at?: string | null;
+  payment_method?: string;
   product?: { id?: string; name?: string };
   payment?: { charge_amount?: number; charge_currency?: string; net_amount?: number; fee?: number };
   tracking?: Partial<Record<'utm_source' | 'utm_medium' | 'utm_campaign' | 'utm_content' | 'utm_term', string | null>>;

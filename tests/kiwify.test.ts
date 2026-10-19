@@ -155,6 +155,7 @@ function fakeStore(offers: Record<string, string> = { 'prod-vasos': 'o1' }, camp
   const store: OrderStore = {
     offerIdsByProduct: async () => new Map(Object.entries(offers)),
     metaEntities: async () => ({ campaigns: new Map(Object.entries(campaigns)), ads: new Map(Object.entries(ads)) }),
+    previousStatuses: async (ids) => new Map(ids.filter((id) => saved.has(id)).map((id) => [id, saved.get(id)!.status])),
     upsertOrders: async (rows) => {
       for (const r of rows) saved.set(r.platformOrderId, r);
     },

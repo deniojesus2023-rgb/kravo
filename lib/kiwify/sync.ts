@@ -5,7 +5,8 @@
 
 import { addDays } from '@/lib/data/dates';
 import type { KiwifySale } from './client';
-import { mapSale, metaIdsIn, type MappedOrder, type SkipReason } from './orders';
+import { detectOrderEvents, type OrderEvent } from '@/lib/notifications/events';
+import { mapSale, metaIdsIn, type MappedOrder, type OrderStatus, type SkipReason } from './orders';
 
 export interface KiwifySalesSource {
   sales(auth: { token: string; accountId: string }, start: string, end: string, updatedSince?: string): Promise<KiwifySale[]>;
@@ -22,6 +23,8 @@ export interface OrderStore {
   offerIdsByProduct(): Promise<Map<string, string>>;
   /** Ids internos das campanhas e dos anúncios do Meta pelos ids da Meta. */
   metaEntities(campaignMetaIds: string[], adMetaIds: string[]): Promise<{ campaigns: Map<string, string>; ads: Map<string, string> }>;
+  /** Estado que a trakfy já tinha de cada pedido (ausente = pedido novo). */
+  previousStatuses(platformOrderIds: string[]): Promise<Map<string, OrderStatus>>;
   upsertOrders(rows: OrderUpsert[]): Promise<void>;
 }
 
@@ -30,6 +33,8 @@ export interface SalesSyncResult {
   saved: number;
   semOferta: number;
   ignoradas: Partial<Record<SkipReason, number>>;
+  /** Avisos a enviar (venda aprovada, Pix gerado...). Vazio na primeira leitura. */
+  events: OrderEvent[];
 }
 
 /** A API limita o período a 90 dias. Na primeira vez lê tudo isso; depois, só o que mudou desde a última leitura. */
@@ -46,6 +51,7 @@ export async function syncKiwifySales(opts: {
   auth: { token: string; accountId: string };
   today: string;
   lastSyncedAt: string | null;
+  now?: Date;
 }): Promise<SalesSyncResult> {
   const { source, store, auth, today, lastSyncedAt } = opts;
   const window = planSalesWindow(today, lastSyncedAt);
@@ -72,7 +78,10 @@ export async function syncKiwifySales(opts: {
     campaignId: metaIdsIn(o.utm.campaign).map((id) => entities.campaigns.get(id)).find(Boolean) ?? null,
     adId: metaIdsIn(o.utm.content).map((id) => entities.ads.get(id)).find(Boolean) ?? null,
   }));
+  const previous = rows.length > 0 ? await store.previousStatuses(rows.map((r) => r.platformOrderId)) : new Map<string, OrderStatus>();
   if (rows.length > 0) await store.upsertOrders(rows);
 
-  return { fetched: sales.length, saved: rows.length, semOferta: mapped.length - known.length, ignoradas };
+  // Na primeira leitura (sem leitura anterior) nada vira aviso: seriam 90 dias de pedidos antigos de uma vez.
+  const events = detectOrderEvents({ orders: rows, previous, now: opts.now ?? new Date(), notify: lastSyncedAt !== null });
+  return { fetched: sales.length, saved: rows.length, semOferta: mapped.length - known.length, ignoradas, events };
 }

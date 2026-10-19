@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { decryptSecret, encryptSecret, parseKey } from '@/lib/crypto/secret';
 import type { KiwifyCredentials } from './client';
+import type { OrderStatus } from './orders';
 import type { KiwifyRunDb } from './run';
 import type { OrderStore, OrderUpsert } from './sync';
 
@@ -53,6 +54,22 @@ export function supabaseOrderStore(admin: SupabaseClient, userId: string, connec
       return { campaigns, ads };
     },
 
+    async previousStatuses(ids) {
+      const out = new Map<string, OrderStatus>();
+      // Ids na URL do PostgREST: lotes pequenos para não estourar o tamanho da requisição.
+      for (let i = 0; i < ids.length; i += 100) {
+        const { data, error } = await admin
+          .from('orders')
+          .select('platform_order_id, status')
+          .eq('user_id', userId)
+          .eq('sales_connection_id', connectionId)
+          .in('platform_order_id', ids.slice(i, i + 100));
+        if (error) throw fail('ler pedidos');
+        for (const o of data ?? []) out.set(o.platform_order_id as string, o.status as OrderStatus);
+      }
+      return out;
+    },
+
     async upsertOrders(rows: OrderUpsert[]) {
       // A paginação pode repetir um pedido; o banco recusa duas linhas iguais no mesmo comando.
       const unique = [...new Map(rows.map((r) => [r.platformOrderId, r])).values()];
@@ -63,6 +80,7 @@ export function supabaseOrderStore(admin: SupabaseClient, userId: string, connec
             offer_id: r.offerId,
             sales_connection_id: connectionId,
             platform_order_id: r.platformOrderId,
+            payment_method: r.paymentMethod,
             status: r.status,
             amount_cents: r.amountCents,
             refunded_cents: r.refundedCents,
