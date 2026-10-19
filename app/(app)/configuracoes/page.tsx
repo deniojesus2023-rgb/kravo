@@ -43,6 +43,18 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     if (data) prefs = { ...DEFAULT_PREFERENCES, ...Object.fromEntries(Object.keys(DEFAULT_PREFERENCES).filter((k) => typeof data[k] === 'boolean').map((k) => [k, data[k]])) };
   }
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim() || null;
+  const serverKey = Boolean(process.env.VAPID_PRIVATE_KEY?.trim());
+
+  let devices = 0;
+  let recent: Array<{ created_at: string; title: string; body: string; sent_at: string | null; error: string | null }> = [];
+  if (supabase && user) {
+    const [d, n] = await Promise.all([
+      supabase.from('push_subscriptions').select('id', { count: 'exact', head: true }),
+      supabase.from('notifications').select('created_at, title, body, sent_at, error').order('created_at', { ascending: false }).limit(5),
+    ]);
+    devices = d.count ?? 0;
+    recent = n.data ?? [];
+  }
 
   return (
     <>
@@ -96,6 +108,41 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               </button>
             </div>
           </form>
+        </section>
+      )}
+
+      {user && (
+        <section className="card flex flex-col gap-3 p-[22px]" aria-labelledby="situacao">
+          <h2 id="situacao" className="m-0 text-lg font-semibold">
+            Situação das notificações
+          </h2>
+          <dl className="m-0 flex flex-col text-[13px]">
+            <div className="flex justify-between gap-4 border-t border-line py-2.5">
+              <dt className="text-fg-muted">Chaves de notificação no servidor</dt>
+              <dd className={cn('m-0', !(publicKey && serverKey) && 'text-warn')}>{publicKey && serverKey ? 'configuradas' : 'faltam (VAPID na Vercel)'}</dd>
+            </div>
+            <div className="flex justify-between gap-4 border-t border-line py-2.5">
+              <dt className="text-fg-muted">Aparelhos ativos</dt>
+              <dd className={cn('num m-0', devices === 0 && 'text-warn')}>{devices === 0 ? 'nenhum: ative neste aparelho' : devices}</dd>
+            </div>
+          </dl>
+          <h3 className="m-0 mt-1 text-[14px] font-semibold">Últimos avisos</h3>
+          {recent.length === 0 ? (
+            <p className="m-0 text-[13px] text-fg-muted">Nenhum aviso gerado ainda. Eles só são gerados quando há um aparelho ativo.</p>
+          ) : (
+            <ul className="m-0 flex list-none flex-col gap-2 p-0">
+              {recent.map((r) => (
+                <li key={r.created_at + r.title} className="flex flex-col gap-0.5 rounded-lg border border-line px-3.5 py-2.5 text-[13px]">
+                  <span className="font-medium">{r.title}</span>
+                  <span className="text-fg-muted">{r.body}</span>
+                  <span className={cn('text-xs', r.sent_at ? 'text-fg-subtle' : 'text-warn')}>
+                    {new Date(r.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })} ·{' '}
+                    {r.sent_at ? 'enviada ao aparelho' : r.error === 'sem_aparelho' ? 'o aparelho foi removido' : 'o envio falhou'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
     </>

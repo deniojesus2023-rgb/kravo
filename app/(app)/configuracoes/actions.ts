@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { notifyMessage } from '@/lib/notifications/dispatch';
 import { DEFAULT_PREFERENCES, type Preferences } from '@/lib/notifications/format';
+import { getVapid } from '@/lib/notifications/push';
 import { supabaseNotifyDeps } from '@/lib/notifications/store';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -70,6 +71,8 @@ export async function sendTestNotification(): Promise<{ delivered: boolean; erro
   if (!session) return { delivered: false, error: 'Entre na sua conta para continuar.' };
   const admin = createAdminClient();
   if (!admin) return { delivered: false, error: 'As notificações ainda não estão configuradas neste ambiente.' };
+
+  if (!getVapid()) return { delivered: false, error: 'As chaves de notificação (VAPID) ainda não estão configuradas no servidor. Veja "Situação" abaixo.' };
 
   const result = await notifyMessage(
     session.user.id,

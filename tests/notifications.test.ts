@@ -51,6 +51,17 @@ describe('detectOrderEvents', () => {
     expect(run(sale({ status: 'chargedback', refunded_at: '2026-10-18T14:55:00.000Z' }), 'aprovado').map((e) => e.kind)).toEqual(['chargeback']);
   });
 
+  it('produto sem oferta ligada: avisa com o nome do produto e o aviso "sem oferta ligada", e leva à tela de integrações', async () => {
+    const e = detectOrderEvents({ orders: [{ ...order(sale()), offerId: null }], previous: new Map(), now: NOW, notify: true });
+    expect(e).toEqual([expect.objectContaining({ kind: 'venda_aprovada', offerId: null, label: null })]);
+    const withName = { ...e[0]!, label: 'Example product' };
+    expect(formatOrderEvent(withName, 'Example product', false)).toEqual({ title: 'Venda aprovada', body: 'Example product · R$ 149,90 · sem oferta ligada', url: '/integracoes#kiwify' });
+    expect(formatOrderEvent(withName, 'Example product', true).body).toBe('Example product · sem oferta ligada');
+    const { deps, push } = fakeDeps({ offerNames: async () => new Map() });
+    await notifyOrderEvents('u', [withName], deps);
+    expect(push).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ body: 'Example product · R$ 149,90 · sem oferta ligada' }));
+  });
+
   it('o que já estava aprovado não avisa de novo', () => {
     expect(run(sale(), 'aprovado')).toEqual([]);
   });
@@ -66,7 +77,7 @@ describe('detectOrderEvents', () => {
 });
 
 describe('texto das notificações', () => {
-  const event: OrderEvent = { kind: 'venda_aprovada', dedupeKey: 'venda:x', orderId: 'x', offerId: 'o1', amountCents: 14990, paymentMethod: null };
+  const event: OrderEvent = { kind: 'venda_aprovada', dedupeKey: 'venda:x', orderId: 'x', offerId: 'o1', label: 'Vasos', amountCents: 14990, paymentMethod: null };
 
   it('venda: oferta e valor; com valores escondidos, só a oferta', () => {
     expect(formatOrderEvent(event, 'Vasos', false)).toEqual({ title: 'Venda aprovada', body: 'Vasos · R$ 149,90', url: '/ofertas/o1' });
@@ -134,7 +145,7 @@ function fakeDeps(over: Partial<NotifyDeps> = {}) {
   return { deps, push, markSent, removeDevice, inserted };
 }
 
-const venda: OrderEvent = { kind: 'venda_aprovada', dedupeKey: 'venda:1', orderId: '1', offerId: 'o1', amountCents: 14990, paymentMethod: null };
+const venda: OrderEvent = { kind: 'venda_aprovada', dedupeKey: 'venda:1', orderId: '1', offerId: 'o1', label: 'Vasos', amountCents: 14990, paymentMethod: null };
 
 describe('envio', () => {
   it('envia o aviso ao aparelho e marca como enviado', async () => {

@@ -51,8 +51,8 @@ export interface Message {
 export function formatOrderEvent(event: OrderEvent, offerName: string, hideAmounts: boolean): Message {
   return {
     title: TITLE[event.kind],
-    body: hideAmounts ? offerName : `${offerName} · ${formatBRL(event.amountCents, { decimals: 2 })}`,
-    url: `/ofertas/${event.offerId}`,
+    body: [offerName, hideAmounts ? null : formatBRL(event.amountCents, { decimals: 2 }), event.offerId ? null : 'sem oferta ligada'].filter(Boolean).join(' · '),
+    url: event.offerId ? `/ofertas/${event.offerId}` : '/integracoes#kiwify',
   };
 }
 

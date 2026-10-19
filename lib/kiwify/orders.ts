@@ -7,6 +7,7 @@ export type OrderStatus = 'pendente' | 'aprovado' | 'reembolsado' | 'chargeback'
 export interface MappedOrder {
   platformOrderId: string;
   productId: string | null;
+  productName: string | null;
   paymentMethod: PaymentMethod | null;
   /** Quando a Kiwify criou a venda (Pix e boleto gerados ainda não têm aprovação). */
   createdAt: string | null;
@@ -92,6 +93,7 @@ export function mapSale(sale: KiwifySale): MapResult {
     order: {
       platformOrderId: id,
       productId: text(sale.product?.id),
+      productName: text(sale.product?.name),
       paymentMethod: paymentMethodOf(sale.payment_method),
       createdAt: created,
       amountCents,

@@ -213,6 +213,10 @@ test.describe('configurações e notificações (conta real, só leitura)', () =
       await expect(page.getByLabel(label)).toBeChecked();
     }
     await expect(page.getByLabel('Esconder valores em dinheiro nas notificações')).not.toBeChecked();
+    // Diagnóstico visível: chaves do servidor, aparelhos ativos e últimos avisos.
+    await expect(page.getByRole('heading', { name: 'Situação das notificações' })).toBeVisible();
+    await expect(page.getByText('Aparelhos ativos')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Últimos avisos' })).toBeVisible();
     // Sem chaves VAPID neste ambiente a tela avisa; com elas, pede para ativar. Nunca fica em branco.
     await expect(page.getByText(/Verificando|não estão configuradas|Ativar neste aparelho|não suporta|bloqueadas|instale a trakfy/i).first()).toBeVisible();
     for (const width of [390, 1440]) {

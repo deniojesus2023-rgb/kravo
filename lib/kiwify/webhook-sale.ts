@@ -42,7 +42,12 @@ export async function processWebhookBody(opts: { body: unknown; store: OrderStor
   const order = mapped.order;
 
   const offerId = (await store.offerIdsByProduct()).get(order.productId ?? '');
-  if (!offerId) return { ...base, outcome: { kind: 'sem_oferta' }, events: [] };
+  if (!offerId) {
+    // Produto ainda sem oferta: o pedido não é gravado (a tabela exige uma oferta), mas a venda não passa em branco.
+    // A chave de deduplicação (`tipo:pedido`) impede avisos repetidos quando a Kiwify reenvia.
+    const events = detectOrderEvents({ orders: [{ ...order, offerId: null }], previous: new Map(), now, notify: true });
+    return { ...base, outcome: { kind: 'sem_oferta' }, events };
+  }
 
   const previous = await store.previousStatuses([order.platformOrderId]);
   // O mesmo aviso repetido (a Kiwify reenvia) não muda nada: nem datas, nem avisos de notificação.
