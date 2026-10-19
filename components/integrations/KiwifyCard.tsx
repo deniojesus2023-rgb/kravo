@@ -2,7 +2,14 @@ import { cn } from '@/lib/cn';
 import { formatUpdatedAt } from '@/lib/format';
 import type { KiwifyIntegration } from '@/lib/kiwify/read';
 import { connectKiwify, disconnectKiwify, syncKiwifyNow } from '@/app/(app)/integracoes/actions';
+import { ConnectKiwifyButton } from './ConnectKiwifyButton';
 import { OfferProductLinks } from './OfferProductLinks';
+
+export interface KiwifyNotice {
+  tone: 'ok' | 'erro';
+  text: string;
+  detail: string | null;
+}
 
 const btn = 'inline-flex h-9 items-center rounded-lg border border-line-strong px-4 text-[13.5px] font-medium hover:bg-surface-hover';
 const input = 'h-10 rounded-lg border border-line-strong bg-canvas px-3 text-[14px] text-fg placeholder:text-fg-subtle';
@@ -15,13 +22,13 @@ const STATUS = {
 } as const;
 
 /** Card da Kiwify em Integrações: credenciais (cifradas no servidor), produtos × ofertas e leitura de vendas. */
-export function KiwifyCard({ data, now }: { data: KiwifyIntegration; now: string }) {
+export function KiwifyCard({ data, now, notices }: { data: KiwifyIntegration; now: string; notices: KiwifyNotice[] }) {
   const status = STATUS[data.status];
   const connected = data.status === 'conectado';
   const unlinked = data.offers.filter((o) => !o.productId).length;
 
   return (
-    <li className="card flex flex-col gap-4 px-5 py-[18px]" style={{ gridColumn: '1 / -1' }}>
+    <li id="kiwify" className="card flex scroll-mt-20 flex-col gap-4 px-5 py-[18px]" style={{ gridColumn: '1 / -1' }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="m-0 text-base font-semibold">Kiwify</h3>
         <span className="inline-flex items-center gap-2 text-[12.5px] font-medium">
@@ -29,6 +36,17 @@ export function KiwifyCard({ data, now }: { data: KiwifyIntegration; now: string
           {status.label}
         </span>
       </div>
+
+      {notices.map((n) => (
+        <p
+          key={n.text}
+          role={n.tone === 'erro' ? 'alert' : 'status'}
+          className={cn('m-0 rounded-lg border px-3.5 py-2.5 text-[13.5px]', n.tone === 'erro' ? 'border-loss/40 text-loss' : 'border-line-strong text-fg')}
+        >
+          {n.text}
+          {n.detail && <span className="mt-1 block text-xs text-fg-muted">Detalhe técnico: {n.detail}.</span>}
+        </p>
+      ))}
 
       {connected ? (
         <>
@@ -102,12 +120,7 @@ export function KiwifyCard({ data, now }: { data: KiwifyIntegration; now: string
             A trakfy só lê vendas e cria um webhook de aviso na sua conta da Kiwify. Ela não altera produtos, preços nem reembolsa vendas.
           </p>
           <div>
-            <button
-              type="submit"
-              className="inline-flex h-9 items-center rounded-lg bg-brand px-4 text-[13.5px] font-semibold text-canvas hover:bg-brand-hover"
-            >
-              Conectar Kiwify
-            </button>
+            <ConnectKiwifyButton />
           </div>
         </form>
       )}
