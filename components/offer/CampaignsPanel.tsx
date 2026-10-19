@@ -146,10 +146,10 @@ export function CampaignsPanel({
 
       {(['conjuntos', 'anuncios'] as const).map((id) => (
         <div key={id} id={`painel-${id}`} role="tabpanel" aria-labelledby={`tab-${id}`} hidden={active !== id} className="border-t border-line px-5 py-8">
-          <p className="m-0 text-[13.5px] font-medium">Disponível na Fase 2</p>
+          <p className="m-0 text-[13.5px] font-medium">Tabela ainda não disponível</p>
           <p className="mt-1.5 mb-0 max-w-[60ch] text-[13px] leading-relaxed text-fg-muted">
-            {id === 'conjuntos' ? 'Conjuntos de anúncios' : 'Anúncios'} serão lidos do Meta Ads na integração real. Na Fase 1 só as
-            campanhas têm dados de exemplo.
+            A kavro já lê {id === 'conjuntos' ? 'os conjuntos de anúncios' : 'os anúncios'} do Meta Ads na sincronização, mas a tabela com os
+            números ainda não foi construída. Por enquanto, só as campanhas têm tabela. Os dados de exemplo também só têm campanhas.
           </p>
         </div>
       ))}

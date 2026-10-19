@@ -52,20 +52,53 @@ export function supabaseSyncStore(admin: SupabaseClient, userId: string): SyncSt
       return out;
     },
 
+    async upsertAdsets(rows) {
+      const out: Array<{ id: string; metaId: string }> = [];
+      for (const part of chunks(rows)) {
+        const { data, error } = await admin
+          .from('adsets')
+          .upsert(
+            part.map((r) => ({ user_id: userId, campaign_id: r.campaignId, meta_adset_id: r.metaAdsetId, name: r.name, status: r.status })),
+            { onConflict: 'user_id,meta_adset_id' },
+          )
+          .select('id, meta_adset_id');
+        if (error) throw fail('gravar conjuntos');
+        out.push(...(data ?? []).map((a) => ({ id: a.id as string, metaId: a.meta_adset_id as string })));
+      }
+      return out;
+    },
+
+    async upsertAds(rows) {
+      const out: Array<{ id: string; metaId: string }> = [];
+      for (const part of chunks(rows)) {
+        const { data, error } = await admin
+          .from('ads')
+          .upsert(
+            part.map((r) => ({ user_id: userId, adset_id: r.adsetId, meta_ad_id: r.metaAdId, name: r.name, status: r.status })),
+            { onConflict: 'user_id,meta_ad_id' },
+          )
+          .select('id, meta_ad_id');
+        if (error) throw fail('gravar anúncios');
+        out.push(...(data ?? []).map((a) => ({ id: a.id as string, metaId: a.meta_ad_id as string })));
+      }
+      return out;
+    },
+
     async upsertMetrics(rows, syncedAt) {
       for (const part of chunks(rows)) {
         const { error } = await admin.from('daily_metrics').upsert(
           part.map((r) => ({
             user_id: userId,
             offer_id: r.offerId,
-            level: 'campaign',
-            entity_id: r.campaignId,
+            level: r.level,
+            entity_id: r.entityId,
             date: r.date,
             spend_cents: r.spendCents,
             impressions: r.impressions,
             reach: r.reach,
             link_clicks: r.linkClicks,
             landing_page_views: r.landingPageViews,
+            video_views_3s: r.videoViews3s,
             checkouts_initiated: r.checkoutsInitiated,
             meta_purchases: r.metaPurchases,
             meta_purchase_value_cents: r.metaPurchaseValueCents,

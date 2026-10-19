@@ -1,5 +1,16 @@
 import { appSecretProof } from './oauth';
-import { ATTRIBUTION_WINDOW, CAMPAIGN_FIELDS, INSIGHT_FIELDS, type InsightRow, type MetaCampaign } from './insights';
+import {
+  AD_FIELDS,
+  ADSET_FIELDS,
+  ATTRIBUTION_WINDOW,
+  CAMPAIGN_FIELDS,
+  INSIGHT_FIELDS_BY_LEVEL,
+  type InsightLevel,
+  type InsightRow,
+  type MetaAd,
+  type MetaAdset,
+  type MetaCampaign,
+} from './insights';
 import type { MetaEnv } from './config';
 
 export class MetaApiError extends Error {
@@ -194,20 +205,34 @@ export function createGraph(env: MetaEnv, fetcher: FetchLike = fetch as FetchLik
       return pages<MetaCampaign>(`/${accountId}/campaigns`, { fields: CAMPAIGN_FIELDS.join(','), limit: '500' }, token);
     },
 
-    /** Métricas por campanha e por dia, de `since` a `until` (inclusive), com a janela de atribuição fixa. */
-    async campaignInsights(token: string, accountId: string, since: string, until: string): Promise<InsightRow[]> {
+    /** Conjuntos de anúncios da conta. */
+    async adsets(token: string, accountId: string): Promise<MetaAdset[]> {
+      return pages<MetaAdset>(`/${accountId}/adsets`, { fields: ADSET_FIELDS.join(','), limit: '500' }, token);
+    },
+
+    /** Anúncios da conta. */
+    async ads(token: string, accountId: string): Promise<MetaAd[]> {
+      return pages<MetaAd>(`/${accountId}/ads`, { fields: AD_FIELDS.join(','), limit: '500' }, token);
+    },
+
+    /** Métricas por entidade e por dia (campanha, conjunto ou anúncio), de `since` a `until` (inclusive), com a janela de atribuição fixa. */
+    async insights(token: string, accountId: string, level: InsightLevel, since: string, until: string): Promise<InsightRow[]> {
       return pages<InsightRow>(
         `/${accountId}/insights`,
         {
-          level: 'campaign',
+          level,
           time_increment: '1',
           time_range: JSON.stringify({ since, until }),
-          fields: INSIGHT_FIELDS.join(','),
+          fields: INSIGHT_FIELDS_BY_LEVEL[level].join(','),
           action_attribution_windows: JSON.stringify([ATTRIBUTION_WINDOW]),
           limit: '500',
         },
         token,
       );
+    },
+
+    async campaignInsights(token: string, accountId: string, since: string, until: string): Promise<InsightRow[]> {
+      return this.insights(token, accountId, 'campaign', since, until);
     },
 
     /** Revoga as permissões do app no Facebook (usado ao desconectar). */

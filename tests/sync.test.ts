@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createGraph, MetaApiError } from '@/lib/meta/graph';
 import {
+  AD_FIELDS,
+  ADSET_FIELDS,
   ATTRIBUTION_WINDOW,
   CAMPAIGN_FIELDS,
+  INSIGHT_FIELDS_BY_LEVEL,
   INSIGHT_FIELDS,
   dailyBudgetCents,
   matchOfferId,
@@ -77,7 +80,23 @@ describe('Graph: só campos permitidos com ads_read', () => {
     });
     await graph.campaigns('tok', 'act_1');
     await graph.campaignInsights('tok', 'act_1', '2026-10-01', '2026-10-19');
-    expect(urls.map((u) => u.pathname)).toEqual(['/v23.0/act_1/campaigns', '/v23.0/act_1/insights']);
+    await graph.adsets('tok', 'act_1');
+    await graph.ads('tok', 'act_1');
+    await graph.insights('tok', 'act_1', 'adset', '2026-10-01', '2026-10-19');
+    await graph.insights('tok', 'act_1', 'ad', '2026-10-01', '2026-10-19');
+    expect(urls.map((u) => u.pathname)).toEqual([
+      '/v23.0/act_1/campaigns',
+      '/v23.0/act_1/insights',
+      '/v23.0/act_1/adsets',
+      '/v23.0/act_1/ads',
+      '/v23.0/act_1/insights',
+      '/v23.0/act_1/insights',
+    ]);
+    expect(urls[2]!.searchParams.get('fields')).toBe(ADSET_FIELDS.join(','));
+    expect(urls[3]!.searchParams.get('fields')).toBe(AD_FIELDS.join(','));
+    expect(urls[4]!.searchParams.get('level')).toBe('adset');
+    expect(urls[5]!.searchParams.get('fields')).toBe(INSIGHT_FIELDS_BY_LEVEL.ad.join(','));
+    for (const u of urls) expect(u.searchParams.get('fields')).not.toMatch(/[{}()]/);
     expect(urls[0]!.searchParams.get('fields')).toBe(CAMPAIGN_FIELDS.join(','));
     expect(urls[1]!.searchParams.get('fields')).toBe(INSIGHT_FIELDS.join(','));
     expect(urls[1]!.searchParams.get('level')).toBe('campaign');
@@ -108,6 +127,8 @@ describe('Graph: só campos permitidos com ads_read', () => {
 function fakeStore(initial: CampaignRecord[] = [], offers = [{ id: 'o1', code: 'VASOS' }]) {
   const campaigns = new Map(initial.map((c) => [c.metaCampaignId, { ...c }]));
   const metrics = new Map<string, MetricUpsert>();
+  const adsets = new Map<string, string>();
+  const ads = new Map<string, string>();
   let n = 0;
   const store: SyncStore = {
     offers: async () => offers,
@@ -119,16 +140,38 @@ function fakeStore(initial: CampaignRecord[] = [], offers = [{ id: 'o1', code: '
         campaigns.set(r.metaCampaignId, rec);
         return rec;
       }),
+    upsertAdsets: async (rows) =>
+      rows.map((r) => {
+        const id = adsets.get(r.metaAdsetId) ?? `s${++n}`;
+        adsets.set(r.metaAdsetId, id);
+        return { id, metaId: r.metaAdsetId };
+      }),
+    upsertAds: async (rows) =>
+      rows.map((r) => {
+        const id = ads.get(r.metaAdId) ?? `a${++n}`;
+        ads.set(r.metaAdId, id);
+        return { id, metaId: r.metaAdId };
+      }),
     upsertMetrics: async (rows) => {
-      for (const r of rows) metrics.set(`${r.campaignId}|${r.date}`, r);
+      for (const r of rows) metrics.set(`${r.level}|${r.entityId}|${r.date}`, r);
     },
   };
-  return { store, campaigns, metrics };
+  return { store, campaigns, metrics, adsets, ads };
 }
 
-const graphOf = (insights: object[], campaigns = [{ id: '10', name: 'VASOS_CBO', effective_status: 'ACTIVE', daily_budget: '20000' }, { id: '11', name: 'Teste solto' }]) => ({
+interface Extra {
+  adsets?: object[];
+  ads?: object[];
+  adsetInsights?: object[];
+  adInsights?: object[];
+}
+const graphOf = (insights: object[], campaigns = [{ id: '10', name: 'VASOS_CBO', effective_status: 'ACTIVE', daily_budget: '20000' }, { id: '11', name: 'Teste solto' }], extra: Extra = {}) => ({
   campaigns: vi.fn(async () => campaigns),
-  campaignInsights: vi.fn(async () => insights as never[]),
+  adsets: vi.fn(async () => (extra.adsets ?? []) as never[]),
+  ads: vi.fn(async () => (extra.ads ?? []) as never[]),
+  insights: vi.fn(async (_t: string, _a: string, level: string) =>
+    ((level === 'campaign' ? insights : level === 'adset' ? extra.adsetInsights : extra.adInsights) ?? []) as never[],
+  ),
 });
 
 const row = (id: string, date: string, spend: string) => ({ campaign_id: id, campaign_name: id, date_start: date, spend });
@@ -139,7 +182,7 @@ describe('syncAdAccount', () => {
   it('liga campanhas ao código da oferta e só guarda métricas das ligadas', async () => {
     const { store, metrics } = fakeStore();
     const r = await syncAdAccount({ graph: graphOf([row('10', '2026-10-18', '10'), row('11', '2026-10-18', '5')]), store, token: 't', account, today: '2026-10-19', now });
-    expect(r).toEqual({ campaigns: 2, linked: 1, unlinked: 1, metricRows: 1 });
+    expect(r).toMatchObject({ campaigns: 2, linked: 1, unlinked: 1, metricRows: 1, adsets: 0, ads: 0 });
     expect([...metrics.values()][0]!).toMatchObject({ offerId: 'o1', spendCents: 1000 });
   });
 
@@ -164,10 +207,33 @@ describe('syncAdAccount', () => {
   it('primeira vez pede 30 dias; depois 7', async () => {
     const first = graphOf([]);
     await syncAdAccount({ graph: first, store: fakeStore().store, token: 't', account, today: '2026-10-19', now });
-    expect(first.campaignInsights).toHaveBeenCalledWith('t', 'act_1', '2026-09-20', '2026-10-19');
+    expect(first.insights).toHaveBeenCalledWith('t', 'act_1', 'campaign', '2026-09-20', '2026-10-19');
     const next = graphOf([]);
     await syncAdAccount({ graph: next, store: fakeStore([{ id: 'c', metaCampaignId: '10', offerId: null }]).store, token: 't', account, today: '2026-10-19', now });
-    expect(next.campaignInsights).toHaveBeenCalledWith('t', 'act_1', '2026-10-13', '2026-10-19');
+    expect(next.insights).toHaveBeenCalledWith('t', 'act_1', 'campaign', '2026-10-13', '2026-10-19');
+  });
+
+  it('conjuntos e anúncios: só de campanhas ligadas, com vídeo 3s, sem duplicar nem afetar o nível campanha', async () => {
+    const { store, metrics, adsets, ads } = fakeStore();
+    const adsetRow = { campaign_id: '10', adset_id: '20', adset_name: 'CJ1', date_start: '2026-10-18', spend: '6', actions: [{ action_type: 'video_view', value: '40' }] };
+    const adRow = { campaign_id: '10', adset_id: '20', ad_id: '30', ad_name: 'AD1', date_start: '2026-10-18', spend: '4', impressions: '100', actions: [{ action_type: 'video_view', value: '25' }] };
+    const loose = { campaign_id: '11', adset_id: '21', adset_name: 'solto', date_start: '2026-10-18', spend: '1' };
+    const g = graphOf([row('10', '2026-10-18', '10')], undefined, {
+      adsets: [{ id: '20', name: 'CJ1', effective_status: 'ACTIVE', campaign_id: '10' }, { id: '21', name: 'solto', campaign_id: '11' }],
+      ads: [{ id: '30', name: 'AD1', effective_status: 'PAUSED', adset_id: '20', campaign_id: '10' }],
+      adsetInsights: [adsetRow, loose],
+      adInsights: [adRow],
+    });
+    const run = () => syncAdAccount({ graph: g, store, token: 't', account, today: '2026-10-19', now });
+    const r = await run();
+    await run();
+    expect(r).toMatchObject({ adsets: 1, ads: 1, metricRows: 3 });
+    expect(adsets.size).toBe(1);
+    expect(ads.size).toBe(1);
+    expect(metrics.size).toBe(3);
+    const ad = [...metrics.values()].find((m) => m.level === 'ad')!;
+    expect(ad).toMatchObject({ offerId: 'o1', videoViews3s: 25, spendCents: 400, impressions: 100 });
+    expect([...metrics.values()].filter((m) => m.level === 'campaign')).toHaveLength(1);
   });
 
   it('recusa conta que não é BRL', async () => {
@@ -199,7 +265,7 @@ describe('runMetaSync', () => {
 
   it('token recusado (190) desconecta e registra só o código fixo', async () => {
     const { db, recordRun, markDisconnected } = dbOf();
-    const graph = { campaigns: async () => { throw new MetaApiError('Error validating access token: token-secreto-muito-longo-123456', 190, 400); }, campaignInsights: async () => [] };
+    const graph = { ...graphOf([]), campaigns: async () => { throw new MetaApiError('Error validating access token: token-secreto-muito-longo-123456', 190, 400); } };
     const out = await runMetaSync({ userId: 'u', graph, db, now });
     expect(out).toEqual({ ok: false, code: 'token_invalido' });
     expect(markDisconnected).toHaveBeenCalledWith('u', 'conn');

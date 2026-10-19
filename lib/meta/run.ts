@@ -6,7 +6,7 @@ import { syncAdAccount, type AccountResult, type AccountToSync, type SyncGraph, 
 export type SyncErrorCode = 'token_invalido' | 'limite_da_meta' | 'meta_erro' | 'banco' | 'moeda_nao_suportada';
 
 export type SyncOutcome =
-  | { ok: true; accounts: number; campaigns: number; linked: number; unlinked: number; metricRows: number }
+  | { ok: true; accounts: number; campaigns: number; linked: number; unlinked: number; metricRows: number; adsets: number; ads: number }
   | { ok: false; code: SyncErrorCode | 'sem_conexao' | 'sem_contas' | 'muito_recente' | 'expirada' };
 
 export interface RunDb {
@@ -53,7 +53,7 @@ export async function runMetaSync(opts: {
 
   const startedAt = now.toISOString();
   const store = db.storeFor(userId);
-  const total = { accounts: 0, campaigns: 0, linked: 0, unlinked: 0, metricRows: 0 };
+  const total = { accounts: 0, campaigns: 0, linked: 0, unlinked: 0, metricRows: 0, adsets: 0, ads: 0 };
   let failure: SyncErrorCode | null = null;
 
   for (const account of connection.accounts) {
@@ -71,6 +71,8 @@ export async function runMetaSync(opts: {
       total.linked += r.linked;
       total.unlinked += r.unlinked;
       total.metricRows += r.metricRows;
+      total.adsets += r.adsets;
+      total.ads += r.ads;
     } catch (error) {
       const code = errorCodeOf(error);
       failure ??= code;
