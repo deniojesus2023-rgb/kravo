@@ -73,3 +73,8 @@ Leitura rápida: `codigo 1` + "Error validating client secret" = chave secreta q
 - Cada execução grava uma linha em `sync_runs` com código fixo de erro (`token_invalido`, `limite_da_meta`, `meta_erro`, `banco`). Código 190 desconecta e apaga a credencial. Nada de token ou mensagem da Meta vai para o log ou a tela.
 - Agendador: `vercel.json` (diário; o plano gratuito só permite isso). Defina `CRON_SECRET` na Vercel.
 - **Não validado contra a Meta real.** Primeiro teste: escolher as contas em Integrações e clicar em "Sincronizar agora".
+
+### Conjuntos e anúncios
+
+- Lidos junto com as campanhas (`/{act}/adsets`, `/{act}/ads`, `insights` com `level=adset|ad`), só os de campanhas ligadas a uma oferta. Métricas em `daily_metrics` nos níveis `adset` e `ad`, com `video_views_3s` (ação `video_view`). Os totais da oferta continuam usando só o nível `campaign`, para não somar o gasto duas vezes.
+- Ainda **sem tabela na interface** (abas Conjuntos e Anúncios) e sem criativos (`creatives`). Não validado contra a Meta real.

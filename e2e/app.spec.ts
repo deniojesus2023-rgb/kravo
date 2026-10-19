@@ -187,7 +187,7 @@ test.describe('teclado e foco', () => {
     await campanhas.focus();
     await page.keyboard.press('ArrowRight');
     await expect(page.getByRole('tab', { name: /Conjuntos · 11/ })).toBeFocused();
-    await expect(page.getByRole('tabpanel')).toContainText('Disponível na Fase 2');
+    await expect(page.getByRole('tabpanel')).toContainText('Tabela ainda não disponível');
     await page.keyboard.press('Home');
     await expect(campanhas).toHaveAttribute('aria-selected', 'true');
   });

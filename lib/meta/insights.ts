@@ -5,19 +5,21 @@
 
 import { addDays } from '@/lib/data/dates';
 
-export const INSIGHT_FIELDS = [
-  'campaign_id',
-  'campaign_name',
-  'spend',
-  'impressions',
-  'reach',
-  'inline_link_clicks',
-  'actions',
-  'action_values',
-  'account_currency',
-] as const;
+const METRIC_FIELDS = ['spend', 'impressions', 'reach', 'inline_link_clicks', 'actions', 'action_values', 'account_currency'] as const;
+
+export type InsightLevel = 'campaign' | 'adset' | 'ad';
+
+/** Campos de `insights` por nível. Todos funcionam só com `ads_read`. */
+export const INSIGHT_FIELDS_BY_LEVEL = {
+  campaign: ['campaign_id', 'campaign_name', ...METRIC_FIELDS],
+  adset: ['campaign_id', 'adset_id', 'adset_name', ...METRIC_FIELDS],
+  ad: ['campaign_id', 'adset_id', 'ad_id', 'ad_name', ...METRIC_FIELDS],
+} as const;
+export const INSIGHT_FIELDS = INSIGHT_FIELDS_BY_LEVEL.campaign;
 
 export const CAMPAIGN_FIELDS = ['id', 'name', 'effective_status', 'daily_budget'] as const;
+export const ADSET_FIELDS = ['id', 'name', 'effective_status', 'campaign_id'] as const;
+export const AD_FIELDS = ['id', 'name', 'effective_status', 'adset_id', 'campaign_id'] as const;
 
 /** Janela de atribuição das ações e valores. Bate com o texto mostrado na interface. */
 export const ATTRIBUTION_WINDOW = '7d_click';
@@ -31,6 +33,10 @@ interface ActionEntry {
 export interface InsightRow {
   campaign_id?: string;
   campaign_name?: string;
+  adset_id?: string;
+  adset_name?: string;
+  ad_id?: string;
+  ad_name?: string;
   date_start?: string;
   spend?: string;
   impressions?: string;
@@ -48,6 +54,21 @@ export interface MetaCampaign {
   daily_budget?: string;
 }
 
+export interface MetaAdset {
+  id: string;
+  name: string;
+  effective_status?: string;
+  campaign_id?: string;
+}
+
+export interface MetaAd {
+  id: string;
+  name: string;
+  effective_status?: string;
+  adset_id?: string;
+  campaign_id?: string;
+}
+
 export interface ParsedInsight {
   campaignId: string;
   campaignName: string;
@@ -59,6 +80,8 @@ export interface ParsedInsight {
   reach: number;
   linkClicks: number;
   landingPageViews: number;
+  /** Reproduções de vídeo de 3 segundos (ação `video_view`). */
+  videoViews3s: number;
   checkouts: number;
   purchases: number;
   purchaseValueCents: number;
@@ -97,10 +120,27 @@ export function parseInsightRow(row: InsightRow): ParsedInsight | null {
     reach: int(row.reach),
     linkClicks: int(row.inline_link_clicks),
     landingPageViews: Math.round(actionValue(row.actions, ['landing_page_view'])),
+    videoViews3s: Math.round(actionValue(row.actions, ['video_view'])),
     checkouts: Math.round(actionValue(row.actions, ['initiate_checkout', 'omni_initiated_checkout'])),
     purchases: Math.round(actionValue(row.actions, ['purchase', 'omni_purchase'])),
     purchaseValueCents: Math.round(actionValue(row.action_values, ['purchase', 'omni_purchase']) * 100),
   };
+}
+
+export interface ParsedEntityInsight extends ParsedInsight {
+  /** Id da entidade na Meta: campanha, conjunto ou anúncio, conforme o nível. */
+  entityId: string;
+  adsetId: string | null;
+}
+
+/** Linha de insights de qualquer nível. A mesma leitura de números; só muda qual id identifica a linha. */
+export function parseEntityInsight(row: InsightRow, level: InsightLevel): ParsedEntityInsight | null {
+  const entityId = level === 'campaign' ? row.campaign_id : level === 'adset' ? row.adset_id : row.ad_id;
+  const name = level === 'campaign' ? row.campaign_name : level === 'adset' ? row.adset_name : row.ad_name;
+  if (!entityId || !row.campaign_id) return null;
+  const base = parseInsightRow({ ...row, campaign_id: row.campaign_id });
+  if (!base) return null;
+  return { ...base, entityId: String(entityId), campaignName: String(name ?? entityId), adsetId: row.adset_id ? String(row.adset_id) : null };
 }
 
 /** Código da oferta no nome da campanha: OFERTA_ESTRUTURA_PÚBLICO → "OFERTA". `null` fora do padrão. */
