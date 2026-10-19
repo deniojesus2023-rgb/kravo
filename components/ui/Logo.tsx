@@ -14,8 +14,8 @@ export function Monogram({ size = 24, className }: { size?: number; className?: 
 export function Logo({ className, large = false }: { className?: string; large?: boolean }) {
   return (
     <span className={cn('flex items-center', large ? 'gap-3.5' : 'gap-2.5', className)}>
-      <Monogram size={large ? 36 : 24} />
-      <span aria-hidden="true" className={cn('leading-none font-bold tracking-[-0.05em]', large ? 'text-[34px]' : 'text-[22px]')}>
+      <Monogram size={large ? 44 : 24} />
+      <span aria-hidden="true" className={cn('leading-none font-bold tracking-[-0.05em]', large ? 'text-[38px]' : 'text-[22px]')}>
         trakfy
       </span>
       <span className="sr-only">trakfy</span>
