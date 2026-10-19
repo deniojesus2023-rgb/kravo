@@ -7,7 +7,7 @@ import { describeDiagnostic } from '@/lib/meta/diagnostic';
 import { readMetaIntegration, type MetaIntegration } from '@/lib/meta/read';
 import { createClient } from '@/lib/supabase/server';
 import { cn } from '@/lib/cn';
-import { disconnectMeta } from './actions';
+import { disconnectMeta, syncMetaNow } from './actions';
 
 export const metadata: Metadata = { title: 'Integrações' };
 
@@ -21,6 +21,19 @@ const MESSAGES: Record<string, { tone: 'ok' | 'erro'; text: string }> = {
   salvar: { tone: 'erro', text: 'Você autorizou, mas não foi possível salvar a conexão. Tente de novo.' },
   nao_configurado: { tone: 'erro', text: 'A conexão com o Meta ainda não está configurada neste ambiente (faltam as chaves do app).' },
 };
+
+const SYNC_ERRORS: Record<string, string> = {
+  sem_conexao: 'Conecte o Meta Ads antes de sincronizar.',
+  sem_contas: 'Escolha ao menos uma conta de anúncios para sincronizar.',
+  expirada: 'O acesso ao Meta expirou. Reconecte para voltar a sincronizar.',
+  muito_recente: 'A última sincronização foi há menos de 2 minutos. Aguarde um pouco.',
+  token_invalido: 'A Meta não aceitou mais o acesso. Reconecte o Meta Ads.',
+  limite_da_meta: 'A Meta limitou as consultas por agora. Tente de novo em alguns minutos.',
+  meta_erro: 'A Meta recusou ou não respondeu à leitura das métricas. Tente de novo em instantes.',
+  banco: 'Não foi possível gravar as métricas agora. Tente de novo.',
+  moeda_nao_suportada: 'A kavro lê só contas em BRL.',
+};
+const count = (v: string | undefined) => (v && /^\d{1,6}$/.test(v) ? Number(v) : null);
 
 const STATUS: Record<MetaIntegration['status'], { label: string; dot: string }> = {
   conectado: { label: 'Conectado', dot: 'bg-profit' },
@@ -42,10 +55,24 @@ const row = 'flex justify-between gap-4 border-t border-line py-2.5 text-[13px]'
 export default async function IntegrationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ meta?: string; etapa?: string; codigo?: string; sub?: string; http?: string; salvar?: string }>;
+  searchParams: Promise<{ meta?: string; etapa?: string; codigo?: string; sub?: string; http?: string; salvar?: string; sync?: string; c?: string; v?: string; n?: string; m?: string }>;
 }) {
   const query = await searchParams;
   const message = MESSAGES[query.meta ?? ''];
+  const campaigns = count(query.c);
+  const linked = count(query.v);
+  const unlinked = count(query.n);
+  const syncMessage =
+    query.sync === 'ok' && campaigns !== null && linked !== null && unlinked !== null
+      ? {
+          tone: 'ok' as const,
+          text: `Sincronizado: ${campaigns} ${campaigns === 1 ? 'campanha' : 'campanhas'}, ${linked} ligadas a ofertas.${
+            unlinked > 0 ? ` ${unlinked} sem oferta: o nome da campanha precisa começar com o código da oferta, como CODIGO_estrutura.` : ''
+          }`,
+        }
+      : query.sync === 'erro'
+        ? { tone: 'erro' as const, text: SYNC_ERRORS[query.codigo ?? ''] ?? SYNC_ERRORS.meta_erro }
+        : null;
   const detail = message?.tone === 'erro' ? describeDiagnostic(query) : null;
   const [context, connection, supabase] = await Promise.all([getContext(), getMetaConnection(), createClient()]);
   const meta = supabase ? await readMetaIntegration(supabase) : null;
@@ -72,6 +99,18 @@ export default async function IntegrationsPage({
         >
           {message.text}
           {detail && <span className="mt-1 block text-xs text-fg-muted">Detalhe técnico: {detail}.</span>}
+        </p>
+      )}
+
+      {syncMessage && (
+        <p
+          role={syncMessage.tone === 'erro' ? 'alert' : 'status'}
+          className={cn(
+            'm-0 rounded-lg border px-3.5 py-2.5 text-[13.5px]',
+            syncMessage.tone === 'erro' ? 'border-loss/40 text-loss' : 'border-line-strong text-fg',
+          )}
+        >
+          {syncMessage.text}
         </p>
       )}
 
@@ -130,11 +169,24 @@ export default async function IntegrationsPage({
                   ))}
                 </ul>
               </div>
+              {connection.lastSync && !connection.lastSync.ok && (
+                <p className="m-0 text-[13px] text-warn">A última sincronização falhou. Tente sincronizar de novo.</p>
+              )}
               <p className="m-0 text-xs leading-relaxed text-fg-subtle">
-                Atenção: a sincronização das métricas ainda não está implementada. A conexão está autorizada e testada, mas os
-                números de mídia ainda não chegam.
+                Lê gasto, impressões, cliques e compras reportadas pelo Meta, por campanha e por dia, com janela de atribuição
+                de 7 dias de clique. Uma campanha só entra numa oferta se o nome começar com o código dela (por exemplo
+                VASOS_CBO_ESCALA). Sincroniza sozinha uma vez por dia.
               </p>
               <div className="flex flex-wrap items-center gap-2">
+                <form action={syncMetaNow}>
+                  <button
+                    type="submit"
+                    disabled={meta.accounts.every((a) => !a.selected)}
+                    className={cn(btn, 'disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent')}
+                  >
+                    Sincronizar agora
+                  </button>
+                </form>
                 <a href="/api/meta/connect" className={btn}>
                   Reconectar
                 </a>

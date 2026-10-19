@@ -84,6 +84,8 @@ export interface PeriodDeltas {
 
 export interface OfferPeriodData {
   offer: Offer;
+  /** Há plataforma de vendas conectada para esta oferta? Sem ela, receita, lucro e ROAS real são desconhecidos. */
+  salesConnected: boolean;
   /** Totais do período anterior, quando a fonte os tem (base das variações do portfólio). */
   previous: { spendCents: number; approvedRevenueCents: number; refundedCents: number; sales: number } | null;
   daily: DailyMetric[];
@@ -154,6 +156,8 @@ export interface DataContext {
 /** Totais e indicadores de uma oferta no período, já calculados pelas regras. */
 export interface OfferSummary {
   offer: Offer;
+  /** Falso: receita, lucro, ROAS real, reembolso, ticket e vendas são desconhecidos (não zero). */
+  salesConnected: boolean;
   period: PeriodRange;
   spendCents: number;
   approvedRevenueCents: number;
@@ -197,6 +201,10 @@ export interface Overview {
     roasReal: number | null;
     cpaCents: number | null;
     refundRate: number | null;
+    /** Gasto só das ofertas com vendas conectadas: base do lucro e do ROAS real do portfólio. */
+    spendWithSalesCents: number;
+    /** Ofertas sem plataforma de vendas, fora do lucro e do ROAS real. */
+    offersWithoutSales: number;
   };
   deltas: Pick<PeriodDeltas, 'spend' | 'revenue' | 'profit' | 'roas'>;
   alerts: Alert[];

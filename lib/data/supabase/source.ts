@@ -3,7 +3,7 @@ import type { DataSource } from '../source';
 import { computeDeltas, type PeriodTotals } from '../deltas';
 import { periodRange, saoPauloDate } from '../dates';
 import { deriveConnectionStatus } from '@/lib/meta/oauth';
-import type { Alert, ConnectionStatus, Offer, SyncRun } from '../types';
+import type { Alert, ConnectionStatus, Offer, SalesPlatform, SyncRun } from '../types';
 import {
   assembleOfferPeriodData,
   type CampaignMetricRow,
@@ -44,7 +44,7 @@ export function supabaseSource(supabase: SupabaseClient): DataSource {
   async function lastSync(): Promise<SyncRun | null> {
     const { data, error } = await supabase
       .from('sync_runs')
-      .select('source, finished_at, delay_seconds, ok')
+      .select('source, finished_at, ok')
       .eq('source', 'Meta Ads')
       .not('finished_at', 'is', null)
       .order('finished_at', { ascending: false })
@@ -52,7 +52,7 @@ export function supabaseSource(supabase: SupabaseClient): DataSource {
     if (error) throw new Error(`Falha ao ler sync_runs: ${error.message}`);
     const row = data?.[0];
     return row
-      ? { source: row.source, finishedAt: row.finished_at, delayMinutes: Math.round((row.delay_seconds ?? 0) / 60), ok: Boolean(row.ok) }
+      ? { source: row.source, finishedAt: row.finished_at, delayMinutes: Math.max(0, Math.round((Date.now() - new Date(row.finished_at).getTime()) / 60_000)), ok: Boolean(row.ok) }
       : null;
   }
 
@@ -104,7 +104,7 @@ export function supabaseSource(supabase: SupabaseClient): DataSource {
     },
 
     async offerPeriodData(range) {
-      const [offers, adAccounts, campaigns, adsets, ads] = await Promise.all([
+      const [offers, adAccounts, campaigns, adsets, ads, salesConnections] = await Promise.all([
         offerRows(),
         adAccountRows(),
         fetchAll<CampaignRow>('campaigns', (a, b) =>
@@ -112,6 +112,9 @@ export function supabaseSource(supabase: SupabaseClient): DataSource {
         ),
         fetchAll<{ id: string; campaign_id: string }>('adsets', (a, b) => supabase.from('adsets').select('id, campaign_id').order('id').range(a, b)),
         fetchAll<{ adset_id: string }>('ads', (a, b) => supabase.from('ads').select('adset_id').order('id').range(a, b)),
+        fetchAll<{ platform: SalesPlatform }>('sales_connections', (a, b) =>
+          supabase.from('sales_connections').select('platform').eq('status', 'conectado').order('id').range(a, b),
+        ),
       ]);
 
       const [metrics, sales, campaignMetrics, campaignSales] = await Promise.all([
@@ -158,7 +161,7 @@ export function supabaseSource(supabase: SupabaseClient): DataSource {
         ),
       ]);
 
-      return assembleOfferPeriodData(range, { offers, adAccounts, metrics, sales, campaigns, campaignMetrics, campaignSales, adsets, ads });
+      return assembleOfferPeriodData(range, { offers, adAccounts, metrics, sales, campaigns, campaignMetrics, campaignSales, adsets, ads, salesConnections });
     },
 
     portfolioDeltas(data) {
@@ -207,5 +210,5 @@ export function supabaseSource(supabase: SupabaseClient): DataSource {
 }
 
 function emptyRows(offers: OfferRow[]) {
-  return { offers, adAccounts: [], metrics: [], sales: [], campaigns: [], campaignMetrics: [], campaignSales: [], adsets: [], ads: [] };
+  return { offers, adAccounts: [], metrics: [], sales: [], campaigns: [], campaignMetrics: [], campaignSales: [], adsets: [], ads: [], salesConnections: [] };
 }

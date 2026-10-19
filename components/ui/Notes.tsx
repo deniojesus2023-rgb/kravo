@@ -1,4 +1,4 @@
-import { formatBRL, formatPercent, formatPeriodRange } from '@/lib/format';
+import { formatAge, formatBRL, formatPercent, formatPeriodRange } from '@/lib/format';
 import { DEFAULT_DECISION_PARAMS, FEES_NOT_REGISTERED_NOTICE, NET_PROFIT_FORMULA } from '@/lib/rules';
 import type { DataContext } from '@/lib/data';
 
@@ -54,7 +54,7 @@ export function SourceNote({
         ? joinSources(sources)
         : 'Nenhuma integração conectada ainda; os números virão do Meta Ads e das plataformas de venda.'}{' '}
       · {formatPeriodRange(period.start, period.end)} · {context.currency} · {context.timezone} · janela de atribuição:{' '}
-      {context.attributionWindow} · atraso de sincronização: {delayMinutes === null ? 'sem sincronização ainda' : `${delayMinutes} min`}.
+      {context.attributionWindow} · atraso de sincronização: {delayMinutes === null ? 'sem sincronização ainda' : formatAge(delayMinutes)}.
     </span>
   );
 }

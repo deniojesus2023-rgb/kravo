@@ -12,6 +12,7 @@ export interface MetaIntegration {
     metaAccountId: string;
     name: string;
     currency: string | null;
+    timezoneName: string | null;
     selected: boolean;
   }>;
 }
@@ -29,7 +30,7 @@ export async function readMetaIntegration(supabase: SupabaseClient, now = new Da
 
   const accounts = await supabase
     .from('ad_accounts')
-    .select('id, meta_account_id, name, currency, selected')
+    .select('id, meta_account_id, name, currency, timezone_name, selected')
     .eq('meta_connection_id', row.id)
     .order('name');
   if (accounts.error) throw new Error(`Falha ao ler ad_accounts: ${accounts.error.message}`);
@@ -45,6 +46,7 @@ export async function readMetaIntegration(supabase: SupabaseClient, now = new Da
       metaAccountId: a.meta_account_id,
       name: a.name,
       currency: a.currency,
+      timezoneName: a.timezone_name,
       selected: a.selected,
     })),
   };

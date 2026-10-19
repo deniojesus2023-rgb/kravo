@@ -92,6 +92,7 @@ describe('assembleOfferPeriodData (linhas do Supabase → dados da oferta)', () 
     campaignSales: [{ campaign_id: 'c1', date: '2026-10-17', approved_orders: 4, approved_revenue_cents: 59_960 }],
     adsets: [{ id: 's1', campaign_id: 'c1' }, { id: 's2', campaign_id: 'outra' }],
     ads: [{ adset_id: 's1' }, { adset_id: 's1' }, { adset_id: 's2' }],
+    salesConnections: [{ platform: 'Kiwify' as const }],
   };
 
   const data = assembleOfferPeriodData(range, rows);
@@ -135,5 +136,51 @@ describe('assembleOfferPeriodData (linhas do Supabase → dados da oferta)', () 
     expect([s.roasReal, s.cpaCents, s.ticketCents, s.refundRate]).toEqual([null, null, null, null]);
     expect(s.deltas).toEqual({ spend: null, revenue: null, profit: null, roas: null, cpa: null, ticket: null });
     expect(s.decision.action).toBe('dados_insuficientes');
+  });
+});
+
+
+describe('oferta sem plataforma de vendas conectada (receita desconhecida, não zero)', () => {
+  const range = periodRange('7d', '2026-10-18')!;
+  const offer = { id: 'o1', code: 'VASOS', name: 'Vasos', sales_platform: 'Hotmart' as const, price_cents: 14990, status: 'em_teste' as const, decision_params: null, ad_account_id: null };
+  const rows: RawRows = {
+    offers: [offer, { ...offer, id: 'o2', code: 'CROCHE', name: 'Crochê', sales_platform: 'Kiwify' as const }],
+    adAccounts: [],
+    metrics: [
+      { offer_id: 'o1', date: '2026-10-17', spend_cents: 350_000, impressions: 90_000, link_clicks: 1_800, landing_page_views: 1_200, checkouts_initiated: 100, meta_purchases: 9, meta_purchase_value_cents: 134_910 },
+      { offer_id: 'o2', date: '2026-10-17', spend_cents: 100_000, impressions: 30_000, link_clicks: 600, landing_page_views: 400, checkouts_initiated: 40, meta_purchases: 4, meta_purchase_value_cents: 24_000 },
+    ],
+    sales: [{ offer_id: 'o2', date: '2026-10-17', approved_orders: 20, approved_revenue_cents: 120_000, refunded_cents: 0 }],
+    campaigns: [],
+    campaignMetrics: [],
+    campaignSales: [],
+    adsets: [],
+    ads: [],
+    salesConnections: [{ platform: 'Kiwify' }], // só a Kiwify está conectada
+  };
+  const data = assembleOfferPeriodData(range, rows);
+
+  it('marca cada oferta conforme a plataforma de vendas dela', () => {
+    expect(data.map((d) => [d.offer.id, d.salesConnected])).toEqual([['o1', false], ['o2', true]]);
+  });
+
+  it('gasto alto sem vendas conectadas NUNCA vira Pausar: vira Dados insuficientes, sem lucro nem ROAS real', () => {
+    const s = summarizeOffer(data[0]!, range);
+    expect(s.spendCents).toBe(350_000);
+    expect(s.salesConnected).toBe(false);
+    expect(s.decision.action).toBe('dados_insuficientes');
+    expect(s.decision.note).toMatch(/plataforma de vendas/);
+    expect(s.decision.criteria).toEqual([]);
+    expect([s.roasReal, s.cpaCents, s.ticketCents, s.refundRate]).toEqual([null, null, null, null]);
+    // O ROAS que o Meta reporta continua existindo, separado do real.
+    expect(s.roasMeta).toBeCloseTo(134_910 / 350_000);
+  });
+
+  it('a oferta com vendas conectadas segue as regras normais', () => {
+    const s = summarizeOffer(data[1]!, range);
+    expect(s.salesConnected).toBe(true);
+    expect(s.roasReal).toBeCloseTo(1.2);
+    expect(s.decision.action).toBe('dados_insuficientes'); // 20 vendas < 30
+    expect(s.decision.criteria.length).toBeGreaterThan(0);
   });
 });

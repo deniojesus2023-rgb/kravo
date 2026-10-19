@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { decryptSecret, parseKey } from '@/lib/crypto/secret';
 import { getMetaEnv } from '@/lib/meta/config';
 import { createGraph } from '@/lib/meta/graph';
+import { runMetaSync } from '@/lib/meta/run';
+import { supabaseRunDb } from '@/lib/meta/sync-store';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
@@ -50,4 +52,26 @@ export async function disconnectMeta(): Promise<void> {
   }
   revalidatePath('/', 'layout');
   redirect('/integracoes?meta=desconectado');
+}
+
+/** Sincroniza agora as contas escolhidas. No máximo uma vez a cada 2 minutos. O resultado volta só em números e códigos fixos. */
+export async function syncMetaNow(): Promise<void> {
+  const supabase = await createClient();
+  const user = supabase ? (await supabase.auth.getUser()).data.user : null;
+  if (!supabase || !user) redirect('/login?next=/integracoes');
+  const env = getMetaEnv();
+  const admin = createAdminClient();
+  if (!env || !admin) redirect('/integracoes?meta=nao_configurado');
+
+  let target: string;
+  try {
+    const outcome = await runMetaSync({ userId: user.id, graph: createGraph(env), db: supabaseRunDb(admin), minIntervalSeconds: 120 });
+    target = outcome.ok
+      ? `/integracoes?sync=ok&c=${outcome.campaigns}&v=${outcome.linked}&n=${outcome.unlinked}&m=${outcome.metricRows}`
+      : `/integracoes?sync=erro&codigo=${outcome.code}`;
+  } catch {
+    target = '/integracoes?sync=erro&codigo=banco';
+  }
+  revalidatePath('/', 'layout');
+  redirect(target);
 }

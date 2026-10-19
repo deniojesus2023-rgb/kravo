@@ -43,16 +43,22 @@ export function OffersTable({ offers, footer }: { offers: OfferSummary[]; footer
   const totals = useMemo(() => {
     const sum = (pick: (o: OfferSummary) => number) => visible.reduce((acc, o) => acc + pick(o), 0);
     const spend = sum((o) => o.spendCents);
-    const revenue = sum((o) => o.approvedRevenueCents);
-    const refunded = sum((o) => o.refundedCents);
-    const sales = sum((o) => o.sales);
+    // Lucro, ROAS e vendas só somam ofertas com plataforma de vendas conectada; as demais têm receita desconhecida.
+    const known = visible.filter((o) => o.salesConnected);
+    const sumKnown = (pick: (o: OfferSummary) => number) => known.reduce((acc, o) => acc + pick(o), 0);
+    const spendKnown = sumKnown((o) => o.spendCents);
+    const revenue = sumKnown((o) => o.approvedRevenueCents);
+    const refunded = sumKnown((o) => o.refundedCents);
+    const sales = sumKnown((o) => o.sales);
+    const any = known.length > 0;
     return {
       spend,
+      any,
       sales,
-      cpa: cpaCents(spend, sales),
-      roas: roas(revenue, spend),
-      profit: netProfitCents({ approvedRevenueCents: revenue, refundedCents: refunded, adSpendCents: spend }),
-      refundRate: refundRate(refunded, revenue),
+      cpa: any ? cpaCents(spendKnown, sales) : null,
+      roas: any ? roas(revenue, spendKnown) : null,
+      profit: netProfitCents({ approvedRevenueCents: revenue, refundedCents: refunded, adSpendCents: spendKnown }),
+      refundRate: any ? refundRate(refunded, revenue) : null,
     };
   }, [visible]);
 
@@ -132,11 +138,19 @@ export function OffersTable({ offers, footer }: { offers: OfferSummary[]; footer
                   </Link>
                 </th>
                 <td className={td}>{formatBRL(o.spendCents)}</td>
-                <td className={td}>{formatInt(o.sales)}</td>
-                <td className={td}>{o.cpaCents === null ? '—' : formatBRL(o.cpaCents, { decimals: 2 })}</td>
-                <td className={cn(td, roasTone(o.roasReal))}>{formatRoas(o.roasReal)}</td>
-                <td className={cn(td, profitTone(o.netProfitCents))}>{formatBRL(o.netProfitCents, { sign: true })}</td>
-                <td className={cn(td, 'text-fg-muted')}>{o.refundRate === null ? '—' : formatPercent(o.refundRate)}</td>
+                {o.salesConnected ? (
+                  <>
+                    <td className={td}>{formatInt(o.sales)}</td>
+                    <td className={td}>{o.cpaCents === null ? '—' : formatBRL(o.cpaCents, { decimals: 2 })}</td>
+                    <td className={cn(td, roasTone(o.roasReal))}>{formatRoas(o.roasReal)}</td>
+                    <td className={cn(td, profitTone(o.netProfitCents))}>{formatBRL(o.netProfitCents, { sign: true })}</td>
+                    <td className={cn(td, 'text-fg-muted')}>{o.refundRate === null ? '—' : formatPercent(o.refundRate)}</td>
+                  </>
+                ) : (
+                  <td colSpan={5} className="px-4 text-left text-xs whitespace-nowrap text-fg-subtle">
+                    — Sem plataforma de vendas conectada: vendas, CPA, ROAS real, lucro e reembolso indisponíveis
+                  </td>
+                )}
                 <td className="px-4 text-left last:pr-5">
                   <ActionBadge action={o.decision.action} />
                 </td>
@@ -149,10 +163,10 @@ export function OffersTable({ offers, footer }: { offers: OfferSummary[]; footer
                 {filter === 'todas' ? 'Total' : `Total · ${ACTION_LABELS[filter]}`}
               </th>
               <td className={td}>{formatBRL(totals.spend)}</td>
-              <td className={td}>{formatInt(totals.sales)}</td>
+              <td className={td}>{totals.any ? formatInt(totals.sales) : '—'}</td>
               <td className={td}>{totals.cpa === null ? '—' : formatBRL(totals.cpa, { decimals: 2 })}</td>
               <td className={td}>{formatRoas(totals.roas)}</td>
-              <td className={cn(td, profitTone(totals.profit))}>{formatBRL(totals.profit, { sign: true })}</td>
+              <td className={cn(td, totals.any && profitTone(totals.profit))}>{totals.any ? formatBRL(totals.profit, { sign: true }) : '—'}</td>
               <td className={cn(td, 'text-fg-muted')}>{totals.refundRate === null ? '—' : formatPercent(totals.refundRate)}</td>
               <td />
             </tr>

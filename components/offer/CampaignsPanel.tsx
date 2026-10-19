@@ -19,11 +19,14 @@ export function CampaignsPanel({
   campaigns,
   adsetCount,
   adCount,
+  salesConnected = true,
   footer,
 }: {
   campaigns: CampaignMetrics[];
   adsetCount: number;
   adCount: number;
+  /** Falso: vendas, CPA e ROAS real por campanha são desconhecidos (sem plataforma de vendas). */
+  salesConnected?: boolean;
   footer: ReactNode;
 }) {
   const tabs: Array<{ id: TabId; label: string }> = [
@@ -117,9 +120,9 @@ export function CampaignsPanel({
                     </td>
                     <td className={cn(td, 'text-fg-muted')}>{formatBRL(c.dailyBudgetCents)}/dia</td>
                     <td className={td}>{formatBRL(c.spendCents)}</td>
-                    <td className={td}>{formatInt(c.approvedOrders)}</td>
-                    <td className={td}>{cCpa === null ? '—' : formatBRL(cCpa, { decimals: 2 })}</td>
-                    <td className={cn(td, roasTone(cRoas))}>{formatRoas(cRoas)}</td>
+                    <td className={td}>{salesConnected ? formatInt(c.approvedOrders) : '—'}</td>
+                    <td className={td}>{salesConnected && cCpa !== null ? formatBRL(cCpa, { decimals: 2 }) : '—'}</td>
+                    <td className={cn(td, salesConnected && roasTone(cRoas))}>{salesConnected ? formatRoas(cRoas) : '—'}</td>
                     <td className={cn(td, 'text-fg-muted')}>{c.impressions > 0 ? formatPercent(c.linkClicks / c.impressions) : '—'}</td>
                   </tr>
                 );
@@ -131,9 +134,9 @@ export function CampaignsPanel({
                 <td />
                 <td className={cn(td, 'text-fg-muted')}>{formatBRL(sum((c) => c.dailyBudgetCents))}/dia</td>
                 <td className={td}>{formatBRL(spend)}</td>
-                <td className={td}>{formatInt(sales)}</td>
-                <td className={td}>{cpaCents(spend, sales) === null ? '—' : formatBRL(cpaCents(spend, sales)!, { decimals: 2 })}</td>
-                <td className={cn(td, roasTone(totalRoas))}>{formatRoas(totalRoas)}</td>
+                <td className={td}>{salesConnected ? formatInt(sales) : '—'}</td>
+                <td className={td}>{salesConnected && cpaCents(spend, sales) !== null ? formatBRL(cpaCents(spend, sales)!, { decimals: 2 }) : '—'}</td>
+                <td className={cn(td, salesConnected && roasTone(totalRoas))}>{salesConnected ? formatRoas(totalRoas) : '—'}</td>
                 <td className={cn(td, 'text-fg-muted')}>{impressions > 0 ? formatPercent(clicks / impressions, 2) : '—'}</td>
               </tr>
             </tfoot>

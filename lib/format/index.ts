@@ -115,3 +115,11 @@ export function formatDateShort(iso: string): string {
   const { y, m, d } = parseIsoDate(date);
   return `${d} ${MONTHS[m - 1]} ${y}`;
 }
+
+/** Tempo decorrido em texto curto: "5 min", "3 h", "2 dias". */
+export function formatAge(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `${hours} h`;
+  return `${Math.floor(hours / 24)} dias`;
+}

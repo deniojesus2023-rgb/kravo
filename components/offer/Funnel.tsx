@@ -18,13 +18,16 @@ const brl = (v: number | null) => (v === null ? dash : formatBRL(v, { decimals: 
 /** Larguras do desenho: indicam a ordem das etapas, não são proporcionais aos valores. */
 const BAR_WIDTHS = ['100%', '74%', '58%', '32%', '18%'];
 
-export function Funnel({ totals }: { totals: FunnelTotals }) {
+/** `purchasesKnown` falso: não há plataforma de vendas, então os pedidos aprovados são desconhecidos (não zero). */
+export function Funnel({ totals, purchasesKnown = true }: { totals: FunnelTotals; purchasesKnown?: boolean }) {
   const steps = [
     { label: 'Impressões', value: totals.impressions, note: `CPM ${brl(cpmCents(totals))}` },
     { label: 'Cliques no link', value: totals.linkClicks, note: `CTR ${pct(ctr(totals), 2)} · CPC ${brl(cpcCents(totals))}` },
     { label: 'Visualizações da página', value: totals.landingPageViews, note: `${pct(clickToViewRate(totals))} dos cliques` },
     { label: 'Checkout iniciado', value: totals.checkouts, note: `${pct(viewToCheckoutRate(totals))} das visualizações` },
-    { label: 'Compras', value: totals.purchases, note: `${pct(checkoutToPurchaseRate(totals))} dos checkouts` },
+    purchasesKnown
+      ? { label: 'Compras', value: totals.purchases, note: `${pct(checkoutToPurchaseRate(totals))} dos checkouts` }
+      : { label: 'Compras', value: null, note: 'Indisponível: sem plataforma de vendas conectada' },
   ];
 
   return (
@@ -37,7 +40,7 @@ export function Funnel({ totals }: { totals: FunnelTotals }) {
           <li key={step.label} className="flex flex-col gap-[7px]">
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-[13.5px]">{step.label}</span>
-              <span className="num text-[15px] font-medium">{formatInt(step.value)}</span>
+              <span className="num text-[15px] font-medium">{step.value === null ? '—' : formatInt(step.value)}</span>
             </div>
             <div
               aria-hidden="true"
@@ -49,7 +52,7 @@ export function Funnel({ totals }: { totals: FunnelTotals }) {
         ))}
       </ol>
       <div className="mt-auto border-t border-line pt-3.5 text-[12.5px] text-fg-muted">
-        Conversão da página até a compra: <span className="num text-fg">{pct(pageToPurchaseRate(totals), 2)}</span>
+        Conversão da página até a compra: <span className="num text-fg">{purchasesKnown ? pct(pageToPurchaseRate(totals), 2) : '—'}</span>
         <span className="mt-1 block text-xs text-fg-subtle">Compras = pedidos aprovados na plataforma de vendas.</span>
       </div>
     </section>

@@ -62,3 +62,14 @@ Leitura rápida: `codigo 1` + "Error validating client secret" = chave secreta q
 - `/me/adaccounts`: `id, account_id, name, currency, account_status, timezone_name`. Nada de `business`, `owner`, saldos, usuários ou expansão de campos.
 - `tests/meta.test.ts` registra todas as URLs do fluxo e falha se aparecer qualquer campo fora dessa lista, caminho inesperado ou escopo extra. Antes de acrescentar um campo, confira na documentação da Meta se ele exige outra permissão.
 - Não verificado contra a Meta: se `/me/adaccounts` lista também as contas que pertencem a um Business Manager com só `ads_read`. Veja o resultado no primeiro teste real.
+
+## Sincronização de métricas
+
+- Código: `lib/meta/insights.ts` (leitura pura), `sync.ts` (núcleo por conta), `run.ts` (orquestração e erros), `sync-store.ts` (banco, chave de serviço), `app/api/jobs/sync-meta/route.ts` (agendador), `syncMetaNow` em `app/(app)/integracoes/actions.ts`.
+- Chamadas (todas só com `ads_read`): `/{act}/campaigns` (`id,name,effective_status,daily_budget`) e `/{act}/insights` (`level=campaign`, `time_increment=1`, `action_attribution_windows=["7d_click"]`, campos em `INSIGHT_FIELDS`). Teste impede campos fora das listas.
+- Janela: 30 dias na primeira vez de cada conta, depois os últimos 7 (a Meta reajusta a atribuição). Dias seguem o fuso da conta de anúncios; a tela avisa se diferir de America/Sao_Paulo.
+- Só contas escolhidas e em BRL. Métricas só de campanhas ligadas a uma oferta (nome começa com o código; vínculo já existente nunca é trocado).
+- Compras: `purchase`, senão `omni_purchase`, nunca somadas. São o que o **Meta reporta**, não vendas reais.
+- Cada execução grava uma linha em `sync_runs` com código fixo de erro (`token_invalido`, `limite_da_meta`, `meta_erro`, `banco`). Código 190 desconecta e apaga a credencial. Nada de token ou mensagem da Meta vai para o log ou a tela.
+- Agendador: `vercel.json` (diário; o plano gratuito só permite isso). Defina `CRON_SECRET` na Vercel.
+- **Não validado contra a Meta real.** Primeiro teste: escolher as contas em Integrações e clicar em "Sincronizar agora".

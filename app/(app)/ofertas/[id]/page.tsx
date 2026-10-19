@@ -87,7 +87,7 @@ export default async function OfferPage({
                     <div className="flex gap-4 text-[12.5px] text-fg-muted">
                       <span className="flex items-center gap-2">
                         <span aria-hidden="true" className="h-0.5 w-3.5 bg-fg" />
-                        Receita aprovada
+                        {detail.salesConnected ? 'Receita aprovada' : 'Receita indisponível'}
                       </span>
                       <span className="flex items-center gap-2">
                         <span aria-hidden="true" className="h-0.5 w-3.5 bg-fg-subtle" />
@@ -96,12 +96,13 @@ export default async function OfferPage({
                     </div>
                   </div>
                   <SpendRevenueChart
+                    revenueKnown={detail.salesConnected}
                     days={detail.daily.map((d) => ({ date: d.date, spendCents: d.spendCents, revenueCents: d.approvedRevenueCents }))}
                   />
                 </section>
 
                 <div className="flex min-w-0 flex-[2_1_320px] flex-col">
-                  <Funnel totals={{ adSpendCents: detail.spendCents, ...detail.funnel }} />
+                  <Funnel totals={{ adSpendCents: detail.spendCents, ...detail.funnel }} purchasesKnown={detail.salesConnected} />
                 </div>
               </div>
 
@@ -109,6 +110,7 @@ export default async function OfferPage({
                 campaigns={detail.campaigns}
                 adsetCount={detail.adsetCount}
                 adCount={detail.adCount}
+                salesConnected={detail.salesConnected}
                 footer={
                   <NotesFooter>
                     <ProfitFormulaNote />

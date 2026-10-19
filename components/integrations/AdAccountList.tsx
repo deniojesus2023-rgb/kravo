@@ -51,6 +51,11 @@ export function AdAccountList({ accounts }: { accounts: MetaIntegration['account
                     {a.metaAccountId}
                     {` · ${a.currency ?? 'moeda desconhecida'}`}
                   </span>
+                  {!unsupported && a.timezoneName && a.timezoneName !== 'America/Sao_Paulo' && (
+                    <span className="text-xs text-warn">
+                      Fuso da conta: {a.timezoneName}. Os dias seguem o fuso da conta, que difere de America/Sao_Paulo.
+                    </span>
+                  )}
                   {unsupported && (
                     <span className="text-xs text-warn">Moeda diferente de BRL: a kavro ainda não lê esta conta.</span>
                   )}

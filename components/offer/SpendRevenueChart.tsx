@@ -26,8 +26,8 @@ function niceStep(maxReais: number): number {
 const r1 = (n: number) => Math.round(n * 10) / 10;
 
 /** Gráfico de linhas SVG próprio: receita aprovada x gasto em mídia por dia. */
-export function SpendRevenueChart({ days }: { days: DayPoint[] }) {
-  const maxReais = Math.max(...days.flatMap((d) => [d.spendCents, d.revenueCents])) / 100;
+export function SpendRevenueChart({ days, revenueKnown = true }: { days: DayPoint[]; revenueKnown?: boolean }) {
+  const maxReais = Math.max(...days.flatMap((d) => (revenueKnown ? [d.spendCents, d.revenueCents] : [d.spendCents]))) / 100;
   const step = niceStep(maxReais);
   const yMax = step * GRID_LINES;
 
@@ -38,7 +38,7 @@ export function SpendRevenueChart({ days }: { days: DayPoint[] }) {
   const spendPoints = days.map((d, i) => `${x(i)},${y(d.spendCents)}`);
   // No máximo ~8 rótulos no eixo; períodos longos mostram um a cada N dias.
   const labelEvery = Math.max(1, Math.ceil(days.length / 8));
-  const peakIndex = days.reduce((best, d, i, all) => (d.revenueCents > (all[best]?.revenueCents ?? 0) ? i : best), 0);
+  const peakIndex = !revenueKnown ? 0 : days.reduce((best, d, i, all) => (d.revenueCents > (all[best]?.revenueCents ?? 0) ? i : best), 0);
   const peak = days[peakIndex]!;
 
   const first = days[0]!;
@@ -47,8 +47,10 @@ export function SpendRevenueChart({ days }: { days: DayPoint[] }) {
   const hi = (pick: (d: DayPoint) => number) => Math.max(...days.map(pick));
   const description =
     `Gráfico de gasto e receita por dia, de ${formatWeekdayDay(first.date)} a ${formatWeekdayDay(last.date)}. ` +
-    `A receita varia entre ${formatBRL(lo((d) => d.revenueCents))} e ${formatBRL(hi((d) => d.revenueCents))} por dia ` +
-    `e o gasto entre ${formatBRL(lo((d) => d.spendCents))} e ${formatBRL(hi((d) => d.spendCents))}.`;
+    (revenueKnown
+      ? `A receita varia entre ${formatBRL(lo((d) => d.revenueCents))} e ${formatBRL(hi((d) => d.revenueCents))} por dia e o gasto`
+      : 'A receita não está disponível, porque não há plataforma de vendas conectada. O gasto') +
+    ` varia entre ${formatBRL(lo((d) => d.spendCents))} e ${formatBRL(hi((d) => d.spendCents))} por dia.`;
 
   return (
     <>
@@ -75,18 +77,21 @@ export function SpendRevenueChart({ days }: { days: DayPoint[] }) {
             ) : null,
           )}
         </g>
-        <path
-          d={`M${revenuePoints.join(' L')} L${x(days.length - 1)},${BOTTOM} L${x(0)},${BOTTOM} Z`}
-          className="fill-fg/7"
-        />
+        {revenueKnown && (
+          <path d={`M${revenuePoints.join(' L')} L${x(days.length - 1)},${BOTTOM} L${x(0)},${BOTTOM} Z`} className="fill-fg/7" />
+        )}
         <polyline points={spendPoints.join(' ')} fill="none" className="stroke-fg-subtle" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-        <polyline points={revenuePoints.join(' ')} fill="none" className="stroke-fg" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-        <g className="fill-canvas stroke-fg" strokeWidth="2">
-          {days.map((d, i) => (
-            <circle key={d.date} cx={x(i)} cy={y(d.revenueCents)} r={i === peakIndex ? 4.5 : 3.5} />
-          ))}
-        </g>
-        <text
+        {revenueKnown && (
+          <>
+            <polyline points={revenuePoints.join(' ')} fill="none" className="stroke-fg" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+            <g className="fill-canvas stroke-fg" strokeWidth="2">
+              {days.map((d, i) => (
+                <circle key={d.date} cx={x(i)} cy={y(d.revenueCents)} r={i === peakIndex ? 4.5 : 3.5} />
+              ))}
+            </g>
+          </>
+        )}
+        {revenueKnown && <text
           x={x(peakIndex)}
           y={Math.max(11, y(peak.revenueCents) - 10)}
           className="fill-fg"
@@ -95,7 +100,7 @@ export function SpendRevenueChart({ days }: { days: DayPoint[] }) {
           textAnchor="middle"
         >
           {formatBRL(peak.revenueCents)}
-        </text>
+        </text>}
       </svg>
 
       <table className="sr-only">
@@ -103,7 +108,7 @@ export function SpendRevenueChart({ days }: { days: DayPoint[] }) {
         <thead>
           <tr>
             <th scope="col">Dia</th>
-            <th scope="col">Receita</th>
+            {revenueKnown && <th scope="col">Receita</th>}
             <th scope="col">Gasto</th>
           </tr>
         </thead>
@@ -111,7 +116,7 @@ export function SpendRevenueChart({ days }: { days: DayPoint[] }) {
           {days.map((d) => (
             <tr key={d.date}>
               <th scope="row">{formatWeekdayDay(d.date)}</th>
-              <td>{formatBRL(d.revenueCents)}</td>
+              {revenueKnown && <td>{formatBRL(d.revenueCents)}</td>}
               <td>{formatBRL(d.spendCents)}</td>
             </tr>
           ))}
