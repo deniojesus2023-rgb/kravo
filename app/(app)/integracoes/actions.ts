@@ -10,6 +10,7 @@ import { createGraph } from '@/lib/meta/graph';
 import { runMetaSync } from '@/lib/meta/run';
 import { supabaseRunDb } from '@/lib/meta/sync-store';
 import { createKiwify, KiwifyApiError } from '@/lib/kiwify/client';
+import { kiwifyDiagnosticParams } from '@/lib/kiwify/diagnostic';
 import { runKiwifySync } from '@/lib/kiwify/run';
 import { openKiwifySecret, sealKiwifySecret, supabaseKiwifyRunDb } from '@/lib/kiwify/store';
 import { hashWebhookSecret, newWebhookSecret } from '@/lib/kiwify/webhook';
@@ -85,7 +86,8 @@ export async function syncMetaNow(): Promise<void> {
 
 const FIELD = {
   clientId: /^[A-Za-z0-9_-]{8,80}$/,
-  clientSecret: /^[A-Za-z0-9_.-]{16,300}$/,
+  // Só viaja no corpo de um formulário e nunca entra em texto montado: basta ser uma sequência sem espaços.
+  clientSecret: /^\S{16,500}$/,
   accountId: /^[A-Za-z0-9_-]{6,40}$/,
 };
 
@@ -106,28 +108,32 @@ export async function connectKiwify(data: FormData): Promise<void> {
   const user = supabase ? (await supabase.auth.getUser()).data.user : null;
   if (!supabase || !user) redirect('/login?next=/integracoes');
   const admin = createAdminClient();
-  if (!admin || !process.env.TOKEN_ENCRYPTION_KEY) redirect('/integracoes?kiwify=nao_configurado');
+  if (!admin || !process.env.TOKEN_ENCRYPTION_KEY) redirect('/integracoes?kiwify=nao_configurado#kiwify');
 
   const clientId = String(data.get('client_id') ?? '').trim();
   const clientSecret = String(data.get('client_secret') ?? '').trim();
   const accountId = String(data.get('account_id') ?? '').trim();
   if (!FIELD.clientId.test(clientId) || !FIELD.clientSecret.test(clientSecret) || !FIELD.accountId.test(accountId)) {
-    redirect('/integracoes?kiwify=campos');
+    redirect('/integracoes?kiwify=campos#kiwify');
   }
 
   const kiwify = createKiwify();
-  let accessToken: string;
+  let accessToken = '';
+  let step: 'token' | 'produtos' = 'token';
   try {
     accessToken = (await kiwify.token(clientId, clientSecret)).accessToken;
+    step = 'produtos';
     await kiwify.products({ token: accessToken, accountId }); // confirma o ID da conta e a permissão de produtos
   } catch (error) {
-    const bad = error instanceof KiwifyApiError && [400, 401, 403].includes(error.status);
-    redirect(`/integracoes?kiwify=${bad ? 'credencial' : 'erro'}`);
+    const status = error instanceof KiwifyApiError ? error.status : 0;
+    const bad = [400, 401, 403].includes(status);
+    const params = new URLSearchParams({ kiwify: bad ? (step === 'token' ? 'credencial' : 'conta') : 'erro', ...kiwifyDiagnosticParams({ step, status }) });
+    redirect(`/integracoes?${params}#kiwify`);
   }
 
   // Uma conexão por usuário e plataforma: reconectar troca a credencial e o webhook.
   const existing = await admin.from('sales_connections').select('id').eq('user_id', user.id).eq('platform', 'Kiwify').limit(1);
-  if (existing.error) redirect('/integracoes?kiwify=erro');
+  if (existing.error) redirect('/integracoes?kiwify=salvar#kiwify');
   let connectionId = existing.data?.[0]?.id as string | undefined;
   if (connectionId) {
     const old = await admin.from('connection_secrets').select('ciphertext').eq('sales_connection_id', connectionId).eq('user_id', user.id).maybeSingle();
@@ -145,10 +151,10 @@ export async function connectKiwify(data: FormData): Promise<void> {
   const fields = { user_id: user.id, platform: 'Kiwify', status: 'conectado', webhook_secret_hash: hashWebhookSecret(webhookSecret), last_synced_at: null };
   if (connectionId) {
     const { error } = await admin.from('sales_connections').update(fields).eq('id', connectionId).eq('user_id', user.id);
-    if (error) redirect('/integracoes?kiwify=erro');
+    if (error) redirect('/integracoes?kiwify=salvar#kiwify');
   } else {
     const { data: created, error } = await admin.from('sales_connections').insert(fields).select('id').single();
-    if (error || !created) redirect('/integracoes?kiwify=erro');
+    if (error || !created) redirect('/integracoes?kiwify=salvar#kiwify');
     connectionId = created.id as string;
   }
 
@@ -171,12 +177,12 @@ export async function connectKiwify(data: FormData): Promise<void> {
   const saved = await admin
     .from('connection_secrets')
     .insert({ user_id: user.id, sales_connection_id: connectionId, ciphertext: sealKiwifySecret({ clientId, clientSecret, accountId, webhookId }) });
-  if (saved.error) redirect('/integracoes?kiwify=erro');
+  if (saved.error) redirect('/integracoes?kiwify=salvar#kiwify');
 
   const db = supabaseKiwifyRunDb(admin);
   after(() => runKiwifySync({ userId: user.id, kiwify, db, notify: orderNotifier(admin) }).catch(() => undefined));
   revalidatePath('/', 'layout');
-  redirect(`/integracoes?kiwify=${webhookId ? 'ok' : 'ok_sem_webhook'}`);
+  redirect(`/integracoes?kiwify=${webhookId ? 'ok' : 'ok_sem_webhook'}#kiwify`);
 }
 
 /** Desconecta a Kiwify: apaga o webhook (se der), a credencial cifrada e o segredo do endereço. Os pedidos já lidos ficam. */
@@ -185,7 +191,7 @@ export async function disconnectKiwify(): Promise<void> {
   const user = supabase ? (await supabase.auth.getUser()).data.user : null;
   if (!supabase || !user) redirect('/login?next=/integracoes');
   const admin = createAdminClient();
-  if (!admin) redirect('/integracoes?kiwify=nao_configurado');
+  if (!admin) redirect('/integracoes?kiwify=nao_configurado#kiwify');
 
   const conns = await admin.from('sales_connections').select('id').eq('user_id', user.id).eq('platform', 'Kiwify');
   for (const { id } of conns.data ?? []) {
@@ -206,7 +212,7 @@ export async function disconnectKiwify(): Promise<void> {
     await admin.from('sales_connections').update({ status: 'desconectado', webhook_secret_hash: null }).eq('id', id).eq('user_id', user.id);
   }
   revalidatePath('/', 'layout');
-  redirect('/integracoes?kiwify=desconectado');
+  redirect('/integracoes?kiwify=desconectado#kiwify');
 }
 
 /** Lê as vendas agora. No máximo uma vez a cada 2 minutos. O resultado volta só em números e códigos fixos. */
@@ -215,16 +221,16 @@ export async function syncKiwifyNow(): Promise<void> {
   const user = supabase ? (await supabase.auth.getUser()).data.user : null;
   if (!supabase || !user) redirect('/login?next=/integracoes');
   const admin = createAdminClient();
-  if (!admin) redirect('/integracoes?kiwify=nao_configurado');
+  if (!admin) redirect('/integracoes?kiwify=nao_configurado#kiwify');
 
   let target: string;
   try {
     const outcome = await runKiwifySync({ userId: user.id, kiwify: createKiwify(), db: supabaseKiwifyRunDb(admin), minIntervalSeconds: 120, notify: orderNotifier(admin) });
     target = outcome.ok
-      ? `/integracoes?ksync=ok&kf=${outcome.fetched}&ks=${outcome.saved}&kn=${outcome.semOferta}`
-      : `/integracoes?ksync=erro&kcodigo=${outcome.code}`;
+      ? `/integracoes?ksync=ok&kf=${outcome.fetched}&ks=${outcome.saved}&kn=${outcome.semOferta}#kiwify`
+      : `/integracoes?ksync=erro&kcodigo=${outcome.code}#kiwify`;
   } catch {
-    target = '/integracoes?ksync=erro&kcodigo=banco';
+    target = '/integracoes?ksync=erro&kcodigo=banco#kiwify';
   }
   revalidatePath('/', 'layout');
   redirect(target);

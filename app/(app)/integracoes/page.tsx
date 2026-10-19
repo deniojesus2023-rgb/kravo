@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { AdAccountList } from '@/components/integrations/AdAccountList';
-import { KiwifyCard } from '@/components/integrations/KiwifyCard';
+import { KiwifyCard, type KiwifyNotice } from '@/components/integrations/KiwifyCard';
+import { describeKiwifyDiagnostic } from '@/lib/kiwify/diagnostic';
 import { readKiwifyIntegration } from '@/lib/kiwify/read';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SampleDataTag } from '@/components/ui/SampleDataTag';
@@ -42,8 +43,10 @@ const KIWIFY_MESSAGES: Record<string, { tone: 'ok' | 'erro'; text: string }> = {
   ok: { tone: 'ok', text: 'Kiwify conectada. O aviso em tempo real foi criado e a primeira leitura das vendas está em andamento. Ligue cada oferta ao produto dela abaixo.' },
   ok_sem_webhook: { tone: 'ok', text: 'Kiwify conectada, mas não foi possível criar o aviso em tempo real. As vendas serão lidas uma vez por dia. Ligue cada oferta ao produto dela abaixo.' },
   desconectado: { tone: 'ok', text: 'Kiwify desconectada. A credencial foi apagada. Os pedidos já lidos continuam salvos.' },
-  campos: { tone: 'erro', text: 'Confira os três campos: client_id, client_secret e ID da conta.' },
-  credencial: { tone: 'erro', text: 'A Kiwify recusou essas credenciais. Confira se copiou tudo e se a chave tem permissão de vendas, produtos e webhooks.' },
+  campos: { tone: 'erro', text: 'Confira os três campos: client_id, client_secret (mínimo de 16 caracteres, sem espaços) e ID da conta.' },
+  credencial: { tone: 'erro', text: 'A Kiwify recusou o client_id ou o client_secret. Confira se copiou tudo, sem espaço, e se a API Key ainda existe.' },
+  conta: { tone: 'erro', text: 'As credenciais foram aceitas, mas a Kiwify recusou o ID da conta ou a permissão de produtos. Confira o ID da conta e se a API Key tem acesso a produtos, vendas e webhooks.' },
+  salvar: { tone: 'erro', text: 'A Kiwify aceitou as credenciais, mas não foi possível salvar a conexão agora. Tente de novo.' },
   erro: { tone: 'erro', text: 'Não foi possível conectar a Kiwify agora. Tente de novo em instantes.' },
   nao_configurado: { tone: 'erro', text: 'A conexão com a Kiwify ainda não está configurada neste ambiente (faltam chaves do servidor).' },
 };
@@ -77,7 +80,7 @@ const row = 'flex justify-between gap-4 border-t border-line py-2.5 text-[13px]'
 export default async function IntegrationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ meta?: string; etapa?: string; codigo?: string; sub?: string; http?: string; salvar?: string; sync?: string; c?: string; v?: string; n?: string; m?: string; kiwify?: string; ksync?: string; kf?: string; ks?: string; kn?: string; kcodigo?: string }>;
+  searchParams: Promise<{ meta?: string; etapa?: string; codigo?: string; sub?: string; http?: string; salvar?: string; sync?: string; c?: string; v?: string; n?: string; m?: string; kiwify?: string; kstep?: string; khttp?: string; ksync?: string; kf?: string; ks?: string; kn?: string; kcodigo?: string }>;
 }) {
   const query = await searchParams;
   const message = MESSAGES[query.meta ?? ''];
@@ -151,22 +154,6 @@ export default async function IntegrationsPage({
         >
           {syncMessage.text}
         </p>
-      )}
-
-      {[kiwifyMessage, kiwifySync].map(
-        (m) =>
-          m && (
-            <p
-              key={m.text}
-              role={m.tone === 'erro' ? 'alert' : 'status'}
-              className={cn(
-                'm-0 rounded-lg border px-3.5 py-2.5 text-[13.5px]',
-                m.tone === 'erro' ? 'border-loss/40 text-loss' : 'border-line-strong text-fg',
-              )}
-            >
-              {m.text}
-            </p>
-          ),
       )}
 
       <section className="card flex flex-wrap gap-7 p-[22px]" aria-labelledby="meta">
@@ -287,7 +274,11 @@ export default async function IntegrationsPage({
       <div className="flex flex-col gap-3.5">
         <h2 className="m-0 text-base font-semibold">Plataformas de venda</h2>
         <ul className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4 p-0">
-          {kiwify && <KiwifyCard data={kiwify} now={context.now} />}
+          {kiwify && <KiwifyCard
+              data={kiwify}
+              now={context.now}
+              notices={[kiwifyMessage && { ...kiwifyMessage, detail: kiwifyMessage.tone === 'erro' ? describeKiwifyDiagnostic(query) : null }, kiwifySync && { ...kiwifySync, detail: null }].filter(Boolean) as KiwifyNotice[]}
+            />}
           {PLATFORMS.filter((p) => !kiwify || p.name !== 'Kiwify').map((p) => (
             <li key={p.name} className="card flex flex-col gap-3 px-5 py-[18px]">
               <div className="flex items-center justify-between gap-3">

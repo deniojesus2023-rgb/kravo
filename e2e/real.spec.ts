@@ -223,3 +223,17 @@ test.describe('configurações e notificações (conta real, só leitura)', () =
     }
   });
 });
+
+test.describe('conexão da Kiwify: o resultado aparece no card', () => {
+  test('erro mostra a mensagem e a etapa dentro do card, e ignora parâmetros forjados', async ({ page }) => {
+    await login(page);
+    await page.goto('/integracoes?kiwify=credencial&kstep=token&khttp=400');
+    const card = page.locator('#kiwify');
+    await expect(card.locator('[role="alert"]')).toContainText('recusou o client_id ou o client_secret');
+    await expect(card.locator('[role="alert"]')).toContainText('Detalhe técnico: etapa: troca das credenciais por um token (oauth/token) · status HTTP: 400.');
+    await page.goto('/integracoes?kiwify=credencial&kstep=%3Cb%3Ex%3C%2Fb%3E&khttp=12ab');
+    await expect(page.locator('#kiwify [role="alert"]')).not.toContainText('Detalhe técnico');
+    await page.goto('/integracoes?kiwify=conta&kstep=produtos&khttp=403');
+    await expect(page.locator('#kiwify [role="alert"]')).toContainText('ID da conta');
+  });
+});

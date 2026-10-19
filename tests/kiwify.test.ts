@@ -293,3 +293,20 @@ describe('webhook da Kiwify', () => {
     expect(hashWebhookSecret(a)).not.toContain(a);
   });
 });
+
+import { describeKiwifyDiagnostic, kiwifyDiagnosticParams } from '@/lib/kiwify/diagnostic';
+
+describe('detalhe técnico da conexão com a Kiwify', () => {
+  it('só etapas conhecidas e números viajam pela URL', () => {
+    expect(kiwifyDiagnosticParams({ step: 'token', status: 400 })).toEqual({ kstep: 'token', khttp: '400' });
+    expect(kiwifyDiagnosticParams({ step: '<b>x</b>', status: 99999 })).toEqual({});
+    expect(kiwifyDiagnosticParams(undefined)).toEqual({});
+  });
+
+  it('descreve etapa e status; ignora parâmetros forjados', () => {
+    expect(describeKiwifyDiagnostic({ kstep: 'produtos', khttp: '403' })).toBe('etapa: leitura dos produtos (confirma o ID da conta) · status HTTP: 403');
+    expect(describeKiwifyDiagnostic({ kstep: '<b>x</b>', khttp: '12ab' })).toBeNull();
+    expect(describeKiwifyDiagnostic({ kstep: 'constructor', khttp: undefined })).toBeNull();
+    expect(describeKiwifyDiagnostic({})).toBeNull();
+  });
+});
