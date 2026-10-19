@@ -1,8 +1,9 @@
 import { cn } from '@/lib/cn';
 import { formatUpdatedAt } from '@/lib/format';
 import type { KiwifyIntegration } from '@/lib/kiwify/read';
-import { connectKiwify, disconnectKiwify, syncKiwifyNow } from '@/app/(app)/integracoes/actions';
+import { connectKiwify, connectKiwifyWebhook, disconnectKiwify, syncKiwifyNow } from '@/app/(app)/integracoes/actions';
 import { ConnectKiwifyButton } from './ConnectKiwifyButton';
+import { CopyField } from './CopyField';
 import { OfferProductLinks } from './OfferProductLinks';
 
 export interface KiwifyNotice {
@@ -13,6 +14,20 @@ export interface KiwifyNotice {
 
 const btn = 'inline-flex h-9 items-center rounded-lg border border-line-strong px-4 text-[13.5px] font-medium hover:bg-surface-hover';
 const input = 'h-10 rounded-lg border border-line-strong bg-canvas px-3 text-[14px] text-fg placeholder:text-fg-subtle';
+
+const WEBHOOK_RESULT: Record<string, string> = {
+  gravado: 'pedido gravado',
+  sem_mudanca: 'aviso repetido, sem mudança',
+  sem_oferta: 'produto ainda sem oferta ligada (ligue abaixo)',
+  erro: 'não foi possível processar',
+  'ignorado:corpo_invalido': 'ignorado: o corpo não era um JSON válido',
+  'ignorado:sem_id': 'ignorado: sem o identificador do pedido',
+  'ignorado:status_desconhecido': 'ignorado: status do pedido não reconhecido',
+  'ignorado:sem_produto': 'ignorado: sem o produto',
+  'ignorado:sem_valor': 'ignorado: sem o valor do pedido',
+  'ignorado:moeda': 'ignorado: moeda diferente de BRL',
+  'ignorado:data_invalida': 'ignorado: data inválida',
+};
 
 const STATUS = {
   conectado: { label: 'Conectado', dot: 'bg-profit' },
@@ -48,7 +63,76 @@ export function KiwifyCard({ data, now, notices }: { data: KiwifyIntegration; no
         </p>
       ))}
 
-      {connected ? (
+      {connected && data.mode === 'webhook' ? (
+        <>
+          <div className="flex flex-col gap-3">
+            <h4 className="m-0 text-[14px] font-semibold">Cole esta URL na Kiwify</h4>
+            {data.webhookUrl ? (
+              <CopyField value={data.webhookUrl} label="URL do webhook (só sua; não compartilhe)" />
+            ) : (
+              <p className="m-0 text-[13px] text-warn">Não foi possível mostrar a URL agora. Recarregue a página ou gere uma nova.</p>
+            )}
+            <ol className="m-0 flex list-decimal flex-col gap-1 pl-5 text-[13px] leading-relaxed text-fg-muted">
+              <li>Na Kiwify, abra Apps e depois Webhooks, e crie um webhook novo.</li>
+              <li>Cole a URL acima e escolha todos os produtos.</li>
+              <li>Marque os eventos: compra aprovada, Pix gerado, boleto gerado, compra reembolsada e chargeback.</li>
+              <li>Salve e envie um teste (ou faça uma compra sua). O aviso aparece aqui em instantes.</li>
+            </ol>
+          </div>
+
+          <dl className="m-0 flex flex-col">
+            <div className="flex justify-between gap-4 border-t border-line py-2.5 text-[13px]">
+              <dt className="text-fg-muted">Último aviso recebido</dt>
+              <dd className="num m-0">{data.lastWebhook ? formatUpdatedAt(data.lastWebhook.at, now) : 'nenhum ainda'}</dd>
+            </div>
+            {data.lastWebhook && (
+              <div className="flex justify-between gap-4 border-t border-line py-2.5 text-[13px]">
+                <dt className="text-fg-muted">O que a trakfy fez</dt>
+                <dd className={cn('m-0 text-right', data.lastWebhook.result.startsWith('ignorado') && 'text-warn')}>
+                  {data.lastWebhook.event ? `${data.lastWebhook.event}: ` : ''}
+                  {WEBHOOK_RESULT[data.lastWebhook.result] ?? data.lastWebhook.result}
+                </dd>
+              </div>
+            )}
+          </dl>
+          {data.lastWebhook?.shape != null && (
+            <details className="text-[13px] text-fg-muted">
+              <summary className="cursor-pointer text-fg">Ver a estrutura do último aviso</summary>
+              <p className="mt-2 mb-1 text-xs text-fg-subtle">Nomes, e-mails, CPF e telefones são ocultados. Se algo não bater, copie e envie este texto ao suporte.</p>
+              <pre className="num m-0 max-h-72 overflow-auto rounded-lg border border-line bg-canvas p-3 text-xs">{JSON.stringify(data.lastWebhook.shape, null, 2).slice(0, 6000)}</pre>
+            </details>
+          )}
+
+          <div className="flex flex-col gap-2.5">
+            <h4 className="m-0 text-[14px] font-semibold">Produto de cada oferta</h4>
+            <p className="m-0 text-xs leading-relaxed text-fg-subtle">
+              Os produtos aparecem aqui quando chega o primeiro aviso deles. Os pedidos só entram numa oferta com o produto ligado; sem isso, lucro e ROAS real dela continuam como desconhecidos.
+              {unlinked > 0 && ` ${unlinked} ${unlinked === 1 ? 'oferta está' : 'ofertas estão'} sem produto.`}
+            </p>
+            {data.offers.length === 0 ? (
+              <p className="m-0 text-[13px] text-fg-muted">Cadastre uma oferta da Kiwify para ligar um produto.</p>
+            ) : data.products && data.products.length > 0 ? (
+              <OfferProductLinks offers={data.offers} products={data.products} />
+            ) : (
+              <p className="m-0 text-[13px] text-fg-muted">Nenhum produto visto ainda. Envie um teste da Kiwify para ele aparecer aqui.</p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <form action={connectKiwifyWebhook}>
+              <button type="submit" className={btn}>
+                Gerar nova URL
+              </button>
+            </form>
+            <form action={disconnectKiwify}>
+              <button type="submit" className="h-9 rounded-lg px-3 text-[13.5px] text-fg-muted underline underline-offset-2 hover:text-fg">
+                Desconectar
+              </button>
+            </form>
+          </div>
+          <p className="m-0 text-xs text-fg-subtle">Gerar uma nova URL invalida a antiga: troque também no painel da Kiwify.</p>
+        </>
+      ) : connected ? (
         <>
           <dl className="m-0 flex flex-col">
             <div className="flex justify-between gap-4 border-t border-line py-2.5 text-[13px]">
@@ -91,11 +175,25 @@ export function KiwifyCard({ data, now, notices }: { data: KiwifyIntegration; no
           </div>
         </>
       ) : (
-        <form action={connectKiwify} className="flex max-w-[520px] flex-col gap-3.5" autoComplete="off">
+        <div className="flex max-w-[520px] flex-col gap-4">
+          <div className="flex flex-col gap-2.5">
+            <h4 className="m-0 text-[14px] font-semibold">Mais simples: conectar por URL</h4>
+            <p className="m-0 text-[13px] leading-relaxed text-fg-muted">
+              {data.status === 'erro'
+                ? 'A Kiwify recusou a credencial. Gere uma URL (sem chave) ou crie uma API Key nova.'
+                : 'A trakfy gera uma URL, você cola no painel de webhooks da Kiwify e as vendas chegam na hora. Sem chave de API. Só vendas novas, sem histórico.'}
+            </p>
+            <form action={connectKiwifyWebhook}>
+              <button type="submit" className="inline-flex h-9 items-center rounded-lg bg-brand px-4 text-[13.5px] font-semibold text-canvas hover:bg-brand-hover">
+                Gerar URL do webhook
+              </button>
+            </form>
+          </div>
+          <details className="rounded-lg border border-line px-3.5 py-3">
+            <summary className="cursor-pointer text-[13.5px] font-medium">Ou conectar com chave de API (traz o histórico de 90 dias)</summary>
+        <form action={connectKiwify} className="mt-3 flex flex-col gap-3.5" autoComplete="off">
           <p className="m-0 text-[13px] leading-relaxed text-fg-muted">
-            {data.status === 'erro'
-              ? 'A Kiwify recusou a credencial. Crie uma nova em Apps, API, e cole de novo.'
-              : 'Na Kiwify, abra Apps, API, Criar API Key. Copie o client_id, o client_secret e o ID da conta. Eles ficam cifrados no servidor e nunca voltam para a tela.'}
+            Na Kiwify, abra Apps, API, Criar API Key. Copie o client_id, o client_secret e o ID da conta. Eles ficam cifrados no servidor e nunca voltam para a tela.
           </p>
           {(['client_id', 'client_secret', 'account_id'] as const).map((name) => {
             const label = { client_id: 'client_id', client_secret: 'client_secret', account_id: 'ID da conta' }[name];
@@ -123,6 +221,8 @@ export function KiwifyCard({ data, now, notices }: { data: KiwifyIntegration; no
             <ConnectKiwifyButton />
           </div>
         </form>
+          </details>
+        </div>
       )}
     </li>
   );

@@ -12,7 +12,7 @@ import { supabaseRunDb } from '@/lib/meta/sync-store';
 import { createKiwify, KiwifyApiError } from '@/lib/kiwify/client';
 import { kiwifyDiagnosticParams } from '@/lib/kiwify/diagnostic';
 import { runKiwifySync } from '@/lib/kiwify/run';
-import { openKiwifySecret, sealKiwifySecret, supabaseKiwifyRunDb } from '@/lib/kiwify/store';
+import { openKiwifySecret, sealKiwifySecret, sealWebhookSecret, supabaseKiwifyRunDb } from '@/lib/kiwify/store';
 import { hashWebhookSecret, newWebhookSecret } from '@/lib/kiwify/webhook';
 import { orderNotifier } from '@/lib/notifications/notifier';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -148,7 +148,7 @@ export async function connectKiwify(data: FormData): Promise<void> {
   }
 
   const webhookSecret = newWebhookSecret();
-  const fields = { user_id: user.id, platform: 'Kiwify', status: 'conectado', webhook_secret_hash: hashWebhookSecret(webhookSecret), last_synced_at: null };
+  const fields = { user_id: user.id, platform: 'Kiwify', status: 'conectado', mode: 'api', webhook_secret_hash: hashWebhookSecret(webhookSecret), last_synced_at: null };
   if (connectionId) {
     const { error } = await admin.from('sales_connections').update(fields).eq('id', connectionId).eq('user_id', user.id);
     if (error) redirect('/integracoes?kiwify=salvar#kiwify');
@@ -185,6 +185,49 @@ export async function connectKiwify(data: FormData): Promise<void> {
   redirect(`/integracoes?kiwify=${webhookId ? 'ok' : 'ok_sem_webhook'}#kiwify`);
 }
 
+/**
+ * Conecta a Kiwify só por URL: a trakfy gera o endereço (com um segredo aleatório), o usuário cola no painel da Kiwify
+ * e os dados vêm no corpo dos avisos. Sem chave de API. Chamar de novo gera uma URL nova e a antiga deixa de valer.
+ */
+export async function connectKiwifyWebhook(): Promise<void> {
+  const supabase = await createClient();
+  const user = supabase ? (await supabase.auth.getUser()).data.user : null;
+  if (!supabase || !user) redirect('/login?next=/integracoes');
+  const admin = createAdminClient();
+  if (!admin || !process.env.TOKEN_ENCRYPTION_KEY) redirect('/integracoes?kiwify=nao_configurado#kiwify');
+
+  const existing = await admin.from('sales_connections').select('id').eq('user_id', user.id).eq('platform', 'Kiwify').limit(1);
+  if (existing.error) redirect('/integracoes?kiwify=salvar#kiwify');
+
+  const secret = newWebhookSecret();
+  const fields = {
+    user_id: user.id,
+    platform: 'Kiwify',
+    status: 'conectado',
+    mode: 'webhook',
+    webhook_secret_hash: hashWebhookSecret(secret),
+    last_synced_at: null,
+    last_webhook_at: null,
+    last_webhook_sample: null,
+  };
+  let connectionId = existing.data?.[0]?.id as string | undefined;
+  if (connectionId) {
+    const { error } = await admin.from('sales_connections').update(fields).eq('id', connectionId).eq('user_id', user.id);
+    if (error) redirect('/integracoes?kiwify=salvar#kiwify');
+  } else {
+    const { data, error } = await admin.from('sales_connections').insert(fields).select('id').single();
+    if (error || !data) redirect('/integracoes?kiwify=salvar#kiwify');
+    connectionId = data.id as string;
+  }
+
+  await admin.from('connection_secrets').delete().eq('sales_connection_id', connectionId).eq('user_id', user.id);
+  const saved = await admin.from('connection_secrets').insert({ user_id: user.id, sales_connection_id: connectionId, ciphertext: sealWebhookSecret(secret) });
+  if (saved.error) redirect('/integracoes?kiwify=salvar#kiwify');
+
+  revalidatePath('/', 'layout');
+  redirect('/integracoes?kiwify=url_gerada#kiwify');
+}
+
 /** Desconecta a Kiwify: apaga o webhook (se der), a credencial cifrada e o segredo do endereço. Os pedidos já lidos ficam. */
 export async function disconnectKiwify(): Promise<void> {
   const supabase = await createClient();
@@ -209,7 +252,7 @@ export async function disconnectKiwify(): Promise<void> {
       }
     }
     await admin.from('connection_secrets').delete().eq('sales_connection_id', id).eq('user_id', user.id);
-    await admin.from('sales_connections').update({ status: 'desconectado', webhook_secret_hash: null }).eq('id', id).eq('user_id', user.id);
+    await admin.from('sales_connections').update({ status: 'desconectado', webhook_secret_hash: null, mode: 'api' }).eq('id', id).eq('user_id', user.id);
   }
   revalidatePath('/', 'layout');
   redirect('/integracoes?kiwify=desconectado#kiwify');

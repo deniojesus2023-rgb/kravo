@@ -8,7 +8,20 @@ Fonte: <https://docs.kiwify.com.br> (lida em 2026-10-19). **Ainda não validada 
 - O usuário cola `client_id`, `client_secret` e o ID da conta em Integrações. Ficam cifrados (AES-256-GCM) em `connection_secrets` e nunca voltam para a tela nem vão para o log. A conexão só é aceita depois de `oauth/token` e `GET /products` funcionarem.
 - A trakfy cria um webhook na conta da Kiwify (`POST /webhooks`, todos os produtos, eventos `compra_aprovada`, `compra_reembolsada`, `chargeback`, `subscription_renewed`). Se não conseguir, a conexão vale mesmo assim e a leitura roda uma vez por dia.
 
-## Como os dados entram
+## Dois modos de conexão
+
+- **URL (mais simples, `mode = 'webhook'`):** a trakfy gera a URL (`/api/webhooks/kiwify/<segredo>`, 192 bits aleatórios; só o hash fica em `sales_connections.webhook_secret_hash` e o segredo cifrado em `connection_secrets`, para a tela poder mostrar a URL de novo). O usuário cola a URL em Apps, Webhooks, na Kiwify, e os dados vêm no **corpo do aviso**. Sem chave de API e **sem histórico** (só vendas novas). "Gerar nova URL" invalida a antiga.
+- **Chave de API (`mode = 'api'`):** descrito abaixo; traz 90 dias de histórico e recupera avisos perdidos.
+
+### Modo URL: leitura do corpo (`lib/kiwify/webhook-payload.ts`)
+
+A documentação pública **não descreve o corpo do aviso**. A leitura é tolerante (maiúsculas ou minúsculas, vários nomes: `order_id`, `order_status`, `webhook_event_type`, `Product`, `Commissions.charge_amount`, `TrackingParameters`...) e estrita no que importa: sem id, status reconhecido, produto e valor, o aviso é **ignorado** e a tela diz o motivo. Nunca se inventa valor.
+- Valor: inteiro = centavos; texto com vírgula ou ponto decimal = reais; outra forma = desconhecido. Sem moeda no aviso vale BRL; moeda informada ≠ BRL é ignorada.
+- Datas: só valem com fuso explícito; sem fuso (hora ambígua), vale o instante em que o aviso chegou (a Kiwify avisa em segundos). Aviso repetido não muda nada. Reembolso mantém a data de aprovação já gravada.
+- A tela mostra o último aviso recebido (quando e o que a trakfy fez) e a **estrutura** dele com nomes, e-mails, CPF e telefones trocados por marcadores (`sanitizePayload`). Os produtos vistos nos avisos (`sales_connections.webhook_products`) alimentam a lista para ligar cada oferta a um produto; um produto só aparece depois do primeiro aviso dele, e esse primeiro pedido não é gravado (sem oferta ligada).
+- Os testes usam avisos **montados** no formato mais provável, não avisos reais. **Primeiro teste real:** gerar a URL, criar o webhook na Kiwify, enviar um teste e conferir "O que a trakfy fez". Se vier "ignorado", copiar a estrutura mostrada na tela para corrigir a leitura.
+
+## Como os dados entram (modo chave de API)
 
 - **O webhook é só um aviso.** O corpo é ignorado (a documentação pública não descreve o corpo nem como a Kiwify autentica a chamada). O endereço `/api/webhooks/kiwify/<segredo>` leva 192 bits aleatórios; só o hash fica em `sales_connections.webhook_secret_hash`. Segredo desconhecido: 404. Ao receber, a trakfy lê `GET /sales` (com `view_full_sale_details=true`) e grava os pedidos.
 - **Leitura de segurança:** `/api/jobs/sync-vendas` diário (`vercel.json`, `CRON_SECRET`) e botão "Ler vendas agora" (mínimo 2 min entre leituras). Primeira leitura: 90 dias (limite da API). Depois: só o que mudou (`updated_at_start_date`). Um reembolso de venda com mais de 90 dias não é visto.

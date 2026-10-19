@@ -237,3 +237,15 @@ test.describe('conexão da Kiwify: o resultado aparece no card', () => {
     await expect(page.locator('#kiwify [role="alert"]')).toContainText('ID da conta');
   });
 });
+
+test.describe('Kiwify por URL (conta real, só leitura)', () => {
+  test('o card oferece a URL gerada pela trakfy; quando conectado, mostra a URL e o passo a passo', async ({ page }) => {
+    await login(page);
+    await page.goto('/integracoes');
+    const card = page.locator('#kiwify');
+    await expect(card.getByRole('heading', { name: 'Kiwify' })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Gerar URL do webhook' }).or(card.getByText('Cole esta URL na Kiwify'))).toBeVisible();
+    // Sem segredos na tela: nada de client_secret preenchido, e a chave de API fica numa seção recolhida.
+    await expect(card.locator('input[type="password"]:visible')).toHaveCount(0);
+  });
+});
