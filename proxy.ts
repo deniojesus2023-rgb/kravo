@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { safeNext } from '@/lib/auth/redirect';
 import { getSupabaseEnv } from '@/lib/supabase/env';
 
-const PUBLIC_PATHS = ['/login', '/cadastro', '/auth', '/privacidade', '/termos', '/exclusao-de-dados', '/api/jobs'];
+const PUBLIC_PATHS = ['/login', '/cadastro', '/auth', '/privacidade', '/termos', '/exclusao-de-dados', '/api/jobs', '/api/webhooks'];
 const isPublic = (path: string) => PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
 
 /**

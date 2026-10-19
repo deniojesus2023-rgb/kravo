@@ -156,7 +156,10 @@ test.describe('integração com o Meta (sem chaves do app neste ambiente)', () =
     for (const name of ['Kiwify', 'Hotmart', 'Eduzz', 'Shopify']) {
       await expect(page.getByText(name, { exact: true })).toBeVisible();
     }
-    await expect(page.getByRole('button', { name: 'Em breve' })).toHaveCount(4);
+    await expect(page.getByRole('button', { name: 'Em breve' })).toHaveCount(3);
+    // Kiwify tem formulário de conexão (credenciais só no servidor, campo secreto mascarado).
+    await expect(page.getByRole('button', { name: 'Conectar Kiwify' })).toBeVisible();
+    await expect(page.getByLabel('client_secret')).toHaveAttribute('type', 'password');
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();

@@ -72,7 +72,7 @@ describe('parseDecisionParams', () => {
 
 describe('assembleOfferPeriodData (linhas do Supabase → dados da oferta)', () => {
   const range = periodRange('7d', '2026-10-18')!;
-  const offer = { id: 'o1', code: 'VASOS', name: 'Vasos', sales_platform: 'Kiwify' as const, price_cents: 14990, status: 'em_teste' as const, decision_params: null, ad_account_id: 'acc1' };
+  const offer = { id: 'o1', code: 'VASOS', name: 'Vasos', sales_platform: 'Kiwify' as const, price_cents: 14990, status: 'em_teste' as const, decision_params: null, ad_account_id: 'acc1', sales_product_id: 'prod-vasos' };
   const rows: RawRows = {
     offers: [offer, { ...offer, id: 'o2', code: 'ARQ', name: 'Arquivada', status: 'arquivada' as never }, { ...offer, id: 'o3', code: 'VAZIA', name: 'Sem dados', ad_account_id: null }],
     adAccounts: [{ id: 'acc1', name: 'Conta 01' }],
@@ -144,7 +144,7 @@ describe('oferta sem plataforma de vendas conectada (receita desconhecida, não 
   const range = periodRange('7d', '2026-10-18')!;
   const offer = { id: 'o1', code: 'VASOS', name: 'Vasos', sales_platform: 'Hotmart' as const, price_cents: 14990, status: 'em_teste' as const, decision_params: null, ad_account_id: null };
   const rows: RawRows = {
-    offers: [offer, { ...offer, id: 'o2', code: 'CROCHE', name: 'Crochê', sales_platform: 'Kiwify' as const }],
+    offers: [offer, { ...offer, id: 'o2', code: 'CROCHE', name: 'Crochê', sales_platform: 'Kiwify' as const, sales_product_id: 'prod-croche' }, { ...offer, id: 'o3', code: 'SEMPROD', name: 'Sem produto', sales_platform: 'Kiwify' as const }],
     adAccounts: [],
     metrics: [
       { offer_id: 'o1', date: '2026-10-17', spend_cents: 350_000, impressions: 90_000, link_clicks: 1_800, landing_page_views: 1_200, checkouts_initiated: 100, meta_purchases: 9, meta_purchase_value_cents: 134_910 },
@@ -161,7 +161,11 @@ describe('oferta sem plataforma de vendas conectada (receita desconhecida, não 
   const data = assembleOfferPeriodData(range, rows);
 
   it('marca cada oferta conforme a plataforma de vendas dela', () => {
-    expect(data.map((d) => [d.offer.id, d.salesConnected])).toEqual([['o1', false], ['o2', true]]);
+    expect(data.map((d) => [d.offer.id, d.salesConnected])).toEqual([['o1', false], ['o2', true], ['o3', false]]);
+  });
+
+  it('plataforma conectada, mas oferta sem produto ligado: continua desconhecido (nenhum pedido chegaria a ela)', () => {
+    expect(data[2]!.salesConnected).toBe(false);
   });
 
   it('gasto alto sem vendas conectadas NUNCA vira Pausar: vira Dados insuficientes, sem lucro nem ROAS real', () => {

@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 import { AdAccountList } from '@/components/integrations/AdAccountList';
+import { KiwifyCard } from '@/components/integrations/KiwifyCard';
+import { readKiwifyIntegration } from '@/lib/kiwify/read';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { SampleDataTag } from '@/components/ui/SampleDataTag';
 import { formatDateShort, formatUpdatedAt } from '@/lib/format';
 import { getContext, getMetaConnection } from '@/lib/data';
@@ -35,6 +38,25 @@ const SYNC_ERRORS: Record<string, string> = {
 };
 const count = (v: string | undefined) => (v && /^\d{1,6}$/.test(v) ? Number(v) : null);
 
+const KIWIFY_MESSAGES: Record<string, { tone: 'ok' | 'erro'; text: string }> = {
+  ok: { tone: 'ok', text: 'Kiwify conectada. O aviso em tempo real foi criado e a primeira leitura das vendas está em andamento. Ligue cada oferta ao produto dela abaixo.' },
+  ok_sem_webhook: { tone: 'ok', text: 'Kiwify conectada, mas não foi possível criar o aviso em tempo real. As vendas serão lidas uma vez por dia. Ligue cada oferta ao produto dela abaixo.' },
+  desconectado: { tone: 'ok', text: 'Kiwify desconectada. A credencial foi apagada. Os pedidos já lidos continuam salvos.' },
+  campos: { tone: 'erro', text: 'Confira os três campos: client_id, client_secret e ID da conta.' },
+  credencial: { tone: 'erro', text: 'A Kiwify recusou essas credenciais. Confira se copiou tudo e se a chave tem permissão de vendas, produtos e webhooks.' },
+  erro: { tone: 'erro', text: 'Não foi possível conectar a Kiwify agora. Tente de novo em instantes.' },
+  nao_configurado: { tone: 'erro', text: 'A conexão com a Kiwify ainda não está configurada neste ambiente (faltam chaves do servidor).' },
+};
+
+const KIWIFY_SYNC_ERRORS: Record<string, string> = {
+  sem_conexao: 'Conecte a Kiwify antes de ler as vendas.',
+  muito_recente: 'A última leitura foi há menos de 2 minutos. Aguarde um pouco.',
+  credencial_invalida: 'A Kiwify recusou a credencial. Reconecte a Kiwify.',
+  limite_da_kiwify: 'A Kiwify limitou as consultas por agora. Tente de novo em alguns minutos.',
+  kiwify_erro: 'A Kiwify recusou ou não respondeu à leitura das vendas. Tente de novo em instantes.',
+  banco: 'Não foi possível gravar os pedidos agora. Tente de novo.',
+};
+
 const STATUS: Record<MetaIntegration['status'], { label: string; dot: string }> = {
   conectado: { label: 'Conectado', dot: 'bg-profit' },
   expirando: { label: 'Acesso expirando', dot: 'bg-warn' },
@@ -55,7 +77,7 @@ const row = 'flex justify-between gap-4 border-t border-line py-2.5 text-[13px]'
 export default async function IntegrationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ meta?: string; etapa?: string; codigo?: string; sub?: string; http?: string; salvar?: string; sync?: string; c?: string; v?: string; n?: string; m?: string }>;
+  searchParams: Promise<{ meta?: string; etapa?: string; codigo?: string; sub?: string; http?: string; salvar?: string; sync?: string; c?: string; v?: string; n?: string; m?: string; kiwify?: string; ksync?: string; kf?: string; ks?: string; kn?: string; kcodigo?: string }>;
 }) {
   const query = await searchParams;
   const message = MESSAGES[query.meta ?? ''];
@@ -73,9 +95,26 @@ export default async function IntegrationsPage({
       : query.sync === 'erro'
         ? { tone: 'erro' as const, text: SYNC_ERRORS[query.codigo ?? ''] ?? SYNC_ERRORS.meta_erro }
         : null;
+  const kiwifyMessage = KIWIFY_MESSAGES[query.kiwify ?? ''];
+  const kf = count(query.kf);
+  const ks = count(query.ks);
+  const kn = count(query.kn);
+  const kiwifySync =
+    query.ksync === 'ok' && kf !== null && ks !== null && kn !== null
+      ? {
+          tone: 'ok' as const,
+          text: `Vendas lidas: ${kf} ${kf === 1 ? 'venda' : 'vendas'} no período, ${ks} gravadas.${
+            kn > 0 ? ` ${kn} sem oferta: ligue o produto à oferta correspondente.` : ''
+          }`,
+        }
+      : query.ksync === 'erro'
+        ? { tone: 'erro' as const, text: KIWIFY_SYNC_ERRORS[query.kcodigo ?? ''] ?? KIWIFY_SYNC_ERRORS.kiwify_erro }
+        : null;
   const detail = message?.tone === 'erro' ? describeDiagnostic(query) : null;
   const [context, connection, supabase] = await Promise.all([getContext(), getMetaConnection(), createClient()]);
   const meta = supabase ? await readMetaIntegration(supabase) : null;
+  const userId = supabase ? (await supabase.auth.getUser()).data.user?.id : undefined;
+  const kiwify = supabase && userId ? await readKiwifyIntegration(supabase, createAdminClient(), userId) : null;
   const status = STATUS[meta?.status ?? 'nao_conectado'];
   const connected = meta && (meta.status === 'conectado' || meta.status === 'expirando');
 
@@ -112,6 +151,22 @@ export default async function IntegrationsPage({
         >
           {syncMessage.text}
         </p>
+      )}
+
+      {[kiwifyMessage, kiwifySync].map(
+        (m) =>
+          m && (
+            <p
+              key={m.text}
+              role={m.tone === 'erro' ? 'alert' : 'status'}
+              className={cn(
+                'm-0 rounded-lg border px-3.5 py-2.5 text-[13.5px]',
+                m.tone === 'erro' ? 'border-loss/40 text-loss' : 'border-line-strong text-fg',
+              )}
+            >
+              {m.text}
+            </p>
+          ),
       )}
 
       <section className="card flex flex-wrap gap-7 p-[22px]" aria-labelledby="meta">
@@ -232,7 +287,8 @@ export default async function IntegrationsPage({
       <div className="flex flex-col gap-3.5">
         <h2 className="m-0 text-base font-semibold">Plataformas de venda</h2>
         <ul className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4 p-0">
-          {PLATFORMS.map((p) => (
+          {kiwify && <KiwifyCard data={kiwify} now={context.now} />}
+          {PLATFORMS.filter((p) => !kiwify || p.name !== 'Kiwify').map((p) => (
             <li key={p.name} className="card flex flex-col gap-3 px-5 py-[18px]">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-base font-semibold">{p.name}</span>
