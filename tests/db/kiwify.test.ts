@@ -103,6 +103,15 @@ describe('pedidos da Kiwify no banco', () => {
     await expect(db.query(`insert into public.sales_connections (user_id, platform, webhook_secret_hash) values ($1, 'Eduzz', 'h1')`, [U])).rejects.toThrow();
   });
 
+  it('modo da conexão: padrão api, só api ou webhook; amostra do aviso e produtos vistos têm formato validado', async () => {
+    expect((await db.query<{ mode: string; webhook_products: unknown }>(`select mode, webhook_products from public.sales_connections where id = $1`, [conn])).rows[0]).toMatchObject({ mode: 'api', webhook_products: {} });
+    await db.query(`update public.sales_connections set mode = 'webhook', last_webhook_at = now(), last_webhook_sample = '{"event":"order_approved"}', webhook_products = '{"prod-1":"Vasos"}' where id = $1`, [conn]);
+    await expect(db.query(`update public.sales_connections set mode = 'outro' where id = $1`, [conn])).rejects.toThrow();
+    await expect(db.query(`update public.sales_connections set last_webhook_sample = '[1,2]' where id = $1`, [conn])).rejects.toThrow();
+    await expect(db.query(`update public.sales_connections set webhook_products = '[]' where id = $1`, [conn])).rejects.toThrow();
+    await db.query(`update public.sales_connections set mode = 'api' where id = $1`, [conn]);
+  });
+
   it('as views de venda enxergam o pedido aprovado e o reembolso da Kiwify', async () => {
     const { rows } = await db.query<{ approved_orders: string; approved_revenue_cents: string; refunded_cents: string }>(
       `select sum(approved_orders) approved_orders, sum(approved_revenue_cents) approved_revenue_cents, sum(refunded_cents) refunded_cents from public.offer_daily_sales where offer_id = $1`,

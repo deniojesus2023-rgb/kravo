@@ -18,6 +18,15 @@ export interface StoredKiwifySecret extends KiwifyCredentials {
 
 export const sealKiwifySecret = (secret: StoredKiwifySecret) => encryptSecret(JSON.stringify(secret), key());
 
+/** Modo URL: o que fica cifrado é só o segredo do endereço, para a tela poder mostrar a URL de novo. */
+export const sealWebhookSecret = (webhookSecret: string) => encryptSecret(JSON.stringify({ kind: 'webhook', webhookSecret }), key());
+
+export function openWebhookSecret(ciphertext: string): string {
+  const raw = JSON.parse(decryptSecret(ciphertext, key())) as { kind?: string; webhookSecret?: string };
+  if (raw.kind !== 'webhook' || !raw.webhookSecret) throw new Error('credencial ilegível');
+  return raw.webhookSecret;
+}
+
 export function openKiwifySecret(ciphertext: string): StoredKiwifySecret {
   const raw = JSON.parse(decryptSecret(ciphertext, key())) as Partial<StoredKiwifySecret>;
   if (!raw.clientId || !raw.clientSecret || !raw.accountId) throw new Error('credencial ilegível');
@@ -70,6 +79,22 @@ export function supabaseOrderStore(admin: SupabaseClient, userId: string, connec
       return out;
     },
 
+    async previousApprovedAt(ids) {
+      const out = new Map<string, string>();
+      for (let i = 0; i < ids.length; i += 100) {
+        const { data, error } = await admin
+          .from('orders')
+          .select('platform_order_id, approved_at')
+          .eq('user_id', userId)
+          .eq('sales_connection_id', connectionId)
+          .not('approved_at', 'is', null)
+          .in('platform_order_id', ids.slice(i, i + 100));
+        if (error) throw fail('ler pedidos');
+        for (const o of data ?? []) out.set(o.platform_order_id as string, o.approved_at as string);
+      }
+      return out;
+    },
+
     async upsertOrders(rows: OrderUpsert[]) {
       // A paginação pode repetir um pedido; o banco recusa duas linhas iguais no mesmo comando.
       const unique = [...new Map(rows.map((r) => [r.platformOrderId, r])).values()];
@@ -110,6 +135,7 @@ export function supabaseKiwifyRunDb(admin: SupabaseClient): KiwifyRunDb {
         .select('id, last_synced_at')
         .eq('user_id', userId)
         .eq('platform', 'Kiwify')
+        .eq('mode', 'api')
         .eq('status', 'conectado')
         .limit(1);
       const row = conn.data?.[0];
@@ -153,7 +179,44 @@ export function supabaseKiwifyRunDb(admin: SupabaseClient): KiwifyRunDb {
 
 /** Usuários com a Kiwify conectada (para o agendador). */
 export async function kiwifyUsers(admin: SupabaseClient): Promise<string[]> {
-  const { data, error } = await admin.from('sales_connections').select('user_id').eq('platform', 'Kiwify').eq('status', 'conectado').limit(5000);
+  const { data, error } = await admin.from('sales_connections').select('user_id').eq('platform', 'Kiwify').eq('mode', 'api').eq('status', 'conectado').limit(5000);
   if (error) throw fail('listar usuários');
   return [...new Set((data ?? []).map((r) => r.user_id as string))];
+}
+
+/** Conexão dona do endereço do webhook (o segredo chega só como hash). */
+export async function findWebhookConnection(admin: SupabaseClient, hash: string) {
+  const { data } = await admin
+    .from('sales_connections')
+    .select('id, user_id, mode')
+    .eq('webhook_secret_hash', hash)
+    .eq('platform', 'Kiwify')
+    .eq('status', 'conectado')
+    .maybeSingle();
+  return data ? { userId: data.user_id as string, connectionId: data.id as string, mode: data.mode as 'api' | 'webhook' } : null;
+}
+
+export interface WebhookReceipt {
+  at: string;
+  sample: unknown;
+  event: string | null;
+  result: string;
+  product: { id: string; name: string } | null;
+}
+
+/** Guarda o último aviso (estrutura sem dados pessoais) e os produtos vistos. */
+export async function recordWebhookReceipt(admin: SupabaseClient, userId: string, connectionId: string, receipt: WebhookReceipt): Promise<void> {
+  const { data } = await admin.from('sales_connections').select('webhook_products').eq('id', connectionId).eq('user_id', userId).maybeSingle();
+  const products = { ...((data?.webhook_products as Record<string, string> | null) ?? {}) };
+  if (receipt.product) products[receipt.product.id] = receipt.product.name;
+  const limited = Object.fromEntries(Object.entries(products).slice(-200));
+  await admin
+    .from('sales_connections')
+    .update({
+      last_webhook_at: receipt.at,
+      last_webhook_sample: { event: receipt.event, result: receipt.result, shape: receipt.sample },
+      webhook_products: limited,
+    })
+    .eq('id', connectionId)
+    .eq('user_id', userId);
 }

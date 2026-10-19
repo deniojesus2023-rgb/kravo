@@ -192,6 +192,7 @@ describe('leitura de vendas → avisos', () => {
       offerIdsByProduct: async () => new Map([['prod-vasos', 'o1']]),
       metaEntities: async () => ({ campaigns: new Map(), ads: new Map() }),
       previousStatuses: async (ids) => new Map(ids.filter((id) => saved.has(id)).map((id) => [id, saved.get(id)!.status])),
+      previousApprovedAt: async () => new Map(),
       upsertOrders: async (rows) => {
         for (const r of rows) saved.set(r.platformOrderId, r);
       },

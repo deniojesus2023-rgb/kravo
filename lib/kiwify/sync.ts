@@ -25,6 +25,8 @@ export interface OrderStore {
   metaEntities(campaignMetaIds: string[], adMetaIds: string[]): Promise<{ campaigns: Map<string, string>; ads: Map<string, string> }>;
   /** Estado que a trakfy já tinha de cada pedido (ausente = pedido novo). */
   previousStatuses(platformOrderIds: string[]): Promise<Map<string, OrderStatus>>;
+  /** Data de aprovação já gravada (aviso de reembolso sem a data original). */
+  previousApprovedAt(platformOrderIds: string[]): Promise<Map<string, string>>;
   upsertOrders(rows: OrderUpsert[]): Promise<void>;
 }
 

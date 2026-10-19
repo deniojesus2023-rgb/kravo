@@ -1,29 +1,56 @@
 import { after, NextResponse } from 'next/server';
 import { createKiwify } from '@/lib/kiwify/client';
 import { runKiwifySync } from '@/lib/kiwify/run';
-import { supabaseKiwifyRunDb } from '@/lib/kiwify/store';
+import { findWebhookConnection, recordWebhookReceipt, supabaseKiwifyRunDb, supabaseOrderStore } from '@/lib/kiwify/store';
 import { handleKiwifyWebhook } from '@/lib/kiwify/webhook';
+import { processWebhookBody } from '@/lib/kiwify/webhook-sale';
 import { orderNotifier } from '@/lib/notifications/notifier';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
-/** Aviso da Kiwify (venda aprovada, reembolso, chargeback...). Responde logo e lê as vendas em seguida. */
-export async function POST(_request: Request, { params }: { params: Promise<{ secret: string }> }) {
+const MAX_BODY_BYTES = 200_000;
+
+/** Aviso da Kiwify (venda aprovada, Pix gerado, reembolso...). Responde logo e processa em seguida. */
+export async function POST(request: Request, { params }: { params: Promise<{ secret: string }> }) {
   const admin = createAdminClient();
   if (!admin) return new NextResponse(null, { status: 503 });
   const db = supabaseKiwifyRunDb(admin);
   const kiwify = createKiwify();
+  const notify = orderNotifier(admin);
 
-  const result = await handleKiwifyWebhook((await params).secret, {
-    async findUserByHash(hash) {
-      const { data } = await admin.from('sales_connections').select('user_id').eq('webhook_secret_hash', hash).eq('platform', 'Kiwify').eq('status', 'conectado').maybeSingle();
-      return (data?.user_id as string | undefined) ?? null;
+  // Corpo pequeno e em JSON; qualquer outra coisa vira "corpo inválido" (o aviso é registrado, nada é gravado).
+  let body: unknown = null;
+  const length = Number(request.headers.get('content-length') ?? 0);
+  if (length <= MAX_BODY_BYTES) {
+    const text = await request.text().catch(() => '');
+    if (text.length <= MAX_BODY_BYTES) {
+      try {
+        body = JSON.parse(text);
+      } catch {
+        body = null;
+      }
+    }
+  }
+
+  const result = await handleKiwifyWebhook((await params).secret, body, {
+    findConnection: (hash) => findWebhookConnection(admin, hash),
+    sync: (userId) => runKiwifySync({ userId, kiwify, db, minIntervalSeconds: 3, notify }),
+    async receive(connection, payload) {
+      const now = new Date();
+      const store = supabaseOrderStore(admin, connection.userId, connection.connectionId);
+      const out = await processWebhookBody({ body: payload, store, now }).catch(() => null);
+      await recordWebhookReceipt(admin, connection.userId, connection.connectionId, {
+        at: now.toISOString(),
+        sample: out?.sample ?? null,
+        event: out?.event ?? null,
+        result: out ? (out.outcome.kind === 'ignorado' ? `ignorado:${out.outcome.reason}` : out.outcome.kind) : 'erro',
+        product: out?.product ?? null,
+      }).catch(() => undefined);
+      if (out && out.events.length > 0) await notify(connection.userId, out.events).catch(() => undefined);
     },
-    sync: (userId) => runKiwifySync({ userId, kiwify, db, minIntervalSeconds: 3, notify: orderNotifier(admin) }),
     defer: (task) => after(task),
   });
   return new NextResponse(null, { status: result.status });
 }
-

@@ -156,6 +156,7 @@ function fakeStore(offers: Record<string, string> = { 'prod-vasos': 'o1' }, camp
     offerIdsByProduct: async () => new Map(Object.entries(offers)),
     metaEntities: async () => ({ campaigns: new Map(Object.entries(campaigns)), ads: new Map(Object.entries(ads)) }),
     previousStatuses: async (ids) => new Map(ids.filter((id) => saved.has(id)).map((id) => [id, saved.get(id)!.status])),
+    previousApprovedAt: async () => new Map(),
     upsertOrders: async (rows) => {
       for (const r of rows) saved.set(r.platformOrderId, r);
     },
@@ -252,37 +253,57 @@ describe('runKiwifySync', () => {
 });
 
 describe('webhook da Kiwify', () => {
-  const setup = (known: string | null) => {
+  const setup = (known: string | null, mode: 'api' | 'webhook' = 'api') => {
     const sync = vi.fn(async () => ({ ok: true as const, fetched: 0, saved: 0, semOferta: 0 }));
+    const receive = vi.fn(async () => undefined);
     const tasks: Array<() => Promise<unknown>> = [];
-    const deps = { findUserByHash: vi.fn(async (hash: string) => (known && hash === hashWebhookSecret(known) ? 'user-1' : null)), sync, defer: (t: () => Promise<unknown>) => void tasks.push(t) };
-    return { deps, sync, tasks };
+    const deps = {
+      findConnection: vi.fn(async (hash: string) => (known && hash === hashWebhookSecret(known) ? { userId: 'user-1', connectionId: 'c1', mode } : null)),
+      sync,
+      receive,
+      defer: (t: () => Promise<unknown>) => void tasks.push(t),
+    };
+    return { deps, sync, receive, tasks };
   };
 
-  it('segredo válido: responde 200 e lê as vendas do dono depois; o corpo é ignorado', async () => {
+  it('modo api: responde 200 e lê as vendas do dono depois; o corpo é ignorado', async () => {
     const secret = newWebhookSecret();
-    const { deps, sync, tasks } = setup(secret);
-    expect(await handleKiwifyWebhook(secret, deps)).toEqual({ status: 200 });
+    const { deps, sync, receive, tasks } = setup(secret);
+    expect(await handleKiwifyWebhook(secret, { qualquer: 'coisa' }, deps)).toEqual({ status: 200 });
     expect(sync).not.toHaveBeenCalled(); // só depois da resposta
     await tasks[0]!();
     expect(sync).toHaveBeenCalledWith('user-1');
+    expect(receive).not.toHaveBeenCalled();
   });
 
-  it('segredo desconhecido ou malformado: 404 igual nos dois casos, sem ler nada', async () => {
-    const { deps, sync, tasks } = setup(newWebhookSecret());
-    expect(await handleKiwifyWebhook(newWebhookSecret(), deps)).toEqual({ status: 404 });
-    expect(await handleKiwifyWebhook('curto', deps)).toEqual({ status: 404 });
-    expect(await handleKiwifyWebhook("'; drop table orders; --'''''''''''''''", deps)).toEqual({ status: 404 });
-    expect(tasks).toHaveLength(0);
+  it('modo webhook: o corpo vai para o processamento, sem chamar a API', async () => {
+    const secret = newWebhookSecret();
+    const { deps, sync, receive, tasks } = setup(secret, 'webhook');
+    expect(await handleKiwifyWebhook(secret, { order_id: 'x' }, deps)).toEqual({ status: 200 });
+    await tasks[0]!();
+    expect(receive).toHaveBeenCalledWith({ userId: 'user-1', connectionId: 'c1', mode: 'webhook' }, { order_id: 'x' });
     expect(sync).not.toHaveBeenCalled();
   });
 
-  it('um erro na leitura não vira erro para a Kiwify', async () => {
+  it('segredo desconhecido ou malformado: 404 igual nos dois casos, sem processar nada', async () => {
+    const { deps, sync, receive, tasks } = setup(newWebhookSecret());
+    expect(await handleKiwifyWebhook(newWebhookSecret(), {}, deps)).toEqual({ status: 404 });
+    expect(await handleKiwifyWebhook('curto', {}, deps)).toEqual({ status: 404 });
+    expect(await handleKiwifyWebhook("'; drop table orders; --'''''''''''''''", {}, deps)).toEqual({ status: 404 });
+    expect(tasks).toHaveLength(0);
+    expect(sync).not.toHaveBeenCalled();
+    expect(receive).not.toHaveBeenCalled();
+  });
+
+  it('um erro no processamento não vira erro para a Kiwify', async () => {
     const secret = newWebhookSecret();
-    const { deps, tasks } = setup(secret);
-    deps.sync.mockRejectedValueOnce(new Error('falhou'));
-    await handleKiwifyWebhook(secret, deps);
-    await expect(tasks[0]!()).resolves.toBeUndefined();
+    for (const mode of ['api', 'webhook'] as const) {
+      const { deps, tasks } = setup(secret, mode);
+      deps.sync.mockRejectedValueOnce(new Error('falhou'));
+      deps.receive.mockRejectedValueOnce(new Error('falhou'));
+      await handleKiwifyWebhook(secret, {}, deps);
+      await expect(tasks[0]!()).resolves.toBeUndefined();
+    }
   });
 
   it('o segredo tem entropia alta e só o hash é guardado', () => {

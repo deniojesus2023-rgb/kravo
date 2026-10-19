@@ -3,6 +3,7 @@ import { AdAccountList } from '@/components/integrations/AdAccountList';
 import { KiwifyCard, type KiwifyNotice } from '@/components/integrations/KiwifyCard';
 import { describeKiwifyDiagnostic } from '@/lib/kiwify/diagnostic';
 import { readKiwifyIntegration } from '@/lib/kiwify/read';
+import { headers } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SampleDataTag } from '@/components/ui/SampleDataTag';
 import { formatDateShort, formatUpdatedAt } from '@/lib/format';
@@ -41,6 +42,7 @@ const count = (v: string | undefined) => (v && /^\d{1,6}$/.test(v) ? Number(v) :
 
 const KIWIFY_MESSAGES: Record<string, { tone: 'ok' | 'erro'; text: string }> = {
   ok: { tone: 'ok', text: 'Kiwify conectada. O aviso em tempo real foi criado e a primeira leitura das vendas está em andamento. Ligue cada oferta ao produto dela abaixo.' },
+  url_gerada: { tone: 'ok', text: 'URL gerada. Copie e cole no painel de webhooks da Kiwify (passo a passo abaixo).' },
   ok_sem_webhook: { tone: 'ok', text: 'Kiwify conectada, mas não foi possível criar o aviso em tempo real. As vendas serão lidas uma vez por dia. Ligue cada oferta ao produto dela abaixo.' },
   desconectado: { tone: 'ok', text: 'Kiwify desconectada. A credencial foi apagada. Os pedidos já lidos continuam salvos.' },
   campos: { tone: 'erro', text: 'Confira os três campos: client_id, client_secret (mínimo de 16 caracteres, sem espaços) e ID da conta.' },
@@ -76,6 +78,14 @@ const PLATFORMS = [
 
 const btn = 'inline-flex h-9 items-center rounded-lg border border-line-strong px-4 text-[13.5px] font-medium hover:bg-surface-hover';
 const row = 'flex justify-between gap-4 border-t border-line py-2.5 text-[13px]';
+
+async function publicOrigin(): Promise<string | null> {
+  const fixed = process.env.APP_URL?.trim().replace(/\/+$/, '');
+  if (fixed) return fixed;
+  const h = await headers();
+  const host = h.get('x-forwarded-host') ?? h.get('host');
+  return host ? `${h.get('x-forwarded-proto') ?? 'https'}://${host}` : null;
+}
 
 export default async function IntegrationsPage({
   searchParams,
@@ -117,7 +127,7 @@ export default async function IntegrationsPage({
   const [context, connection, supabase] = await Promise.all([getContext(), getMetaConnection(), createClient()]);
   const meta = supabase ? await readMetaIntegration(supabase) : null;
   const userId = supabase ? (await supabase.auth.getUser()).data.user?.id : undefined;
-  const kiwify = supabase && userId ? await readKiwifyIntegration(supabase, createAdminClient(), userId) : null;
+  const kiwify = supabase && userId ? await readKiwifyIntegration(supabase, createAdminClient(), userId, await publicOrigin()) : null;
   const status = STATUS[meta?.status ?? 'nao_conectado'];
   const connected = meta && (meta.status === 'conectado' || meta.status === 'expirando');
 
