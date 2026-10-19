@@ -7,7 +7,7 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[760px] flex-col gap-8 px-4 py-8 sm:px-6">
       <header>
-        <Link href="/" aria-label="kavro, início">
+        <Link href="/" aria-label="trakfy, início">
           <Logo />
         </Link>
       </header>

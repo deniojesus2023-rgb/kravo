@@ -49,7 +49,7 @@ export default function NewOfferPage() {
               3. Rastreamento
             </h2>
             <p className="m-0 text-[13px] leading-relaxed text-fg-muted">
-              Use o padrão de UTM nos anúncios e o padrão de nome nas campanhas, para a kavro ligar cada pedido ao anúncio
+              Use o padrão de UTM nos anúncios e o padrão de nome nas campanhas, para a trakfy ligar cada pedido ao anúncio
               que o gerou. O script da página de vendas e a API de Conversões ainda não estão disponíveis.
             </p>
           </div>

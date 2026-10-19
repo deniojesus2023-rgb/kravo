@@ -10,9 +10,9 @@
 
 ## Permissões
 
-- `ads_read`: ler métricas. É a que a kavro usa.
-- `ads_management`: **não pedir**. A kavro não cria, edita nem pausa anúncios (decisão pendente de confirmação, ver CLAUDE.md).
-- `business_management`: **não é pedida** e a kavro não usa nenhum campo que a exija. Em produção, pedir `business{name}` em `/me/adaccounts` falhou com "(#100) Requires business_management permission to access the field". Por isso a kavro não mostra o nome do Business Manager de cada conta.
+- `ads_read`: ler métricas. É a que a trakfy usa.
+- `ads_management`: **não pedir**. A trakfy não cria, edita nem pausa anúncios (decisão pendente de confirmação, ver CLAUDE.md).
+- `business_management`: **não é pedida** e a trakfy não usa nenhum campo que a exija. Em produção, pedir `business{name}` em `/me/adaccounts` falhou com "(#100) Requires business_management permission to access the field". Por isso a trakfy não mostra o nome do Business Manager de cada conta.
 
 ## Campos do app (Configurações → Básico)
 

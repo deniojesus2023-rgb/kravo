@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { setAdAccountSelected } from '@/app/(app)/integracoes/actions';
 import type { MetaIntegration } from '@/lib/meta/read';
 
-/** Escolha das contas de anúncios que a kavro pode ler. Salva a cada clique e mostra o erro, se houver. */
+/** Escolha das contas de anúncios que a trakfy pode ler. Salva a cada clique e mostra o erro, se houver. */
 export function AdAccountList({ accounts }: { accounts: MetaIntegration['accounts'] }) {
   const [selected, setSelected] = useState(() => new Map(accounts.map((a) => [a.id, a.selected])));
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export function AdAccountList({ accounts }: { accounts: MetaIntegration['account
   return (
     <div className="flex flex-col gap-2.5">
       <span className="text-xs text-fg-subtle" aria-live="polite">
-        Escolha quais contas a kavro pode ler. {count} de {accounts.length} selecionadas.
+        Escolha quais contas a trakfy pode ler. {count} de {accounts.length} selecionadas.
       </span>
       <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
         {accounts.map((a) => {
@@ -57,7 +57,7 @@ export function AdAccountList({ accounts }: { accounts: MetaIntegration['account
                     </span>
                   )}
                   {unsupported && (
-                    <span className="text-xs text-warn">Moeda diferente de BRL: a kavro ainda não lê esta conta.</span>
+                    <span className="text-xs text-warn">Moeda diferente de BRL: a trakfy ainda não lê esta conta.</span>
                   )}
                 </span>
               </label>

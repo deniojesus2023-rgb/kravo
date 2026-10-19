@@ -9,8 +9,8 @@ export default function PrivacyPage() {
   return (
     <LegalPage title="Política de privacidade">
       <P>
-        Esta política explica quais dados a kavro trata, para quê, com quem compartilha e como você exerce seus direitos
-        pela Lei Geral de Proteção de Dados (LGPD, Lei 13.709/2018). A kavro é uma plataforma de gestão, rastreamento e
+        Esta política explica quais dados a trakfy trata, para quê, com quem compartilha e como você exerce seus direitos
+        pela Lei Geral de Proteção de Dados (LGPD, Lei 13.709/2018). A trakfy é uma plataforma de gestão, rastreamento e
         análise de ofertas de tráfego pago.
       </P>
 
@@ -34,7 +34,7 @@ export default function PrivacyPage() {
           <li>
             <strong className="text-fg">Dados do Meta Ads, quando você conecta sua conta:</strong> contas de anúncios que
             você escolhe, campanhas, conjuntos e anúncios, e métricas como gasto, impressões, cliques e compras
-            reportadas. Lemos esses dados com a permissão <em>ads_read</em>. A kavro não cria, edita nem pausa anúncios.
+            reportadas. Lemos esses dados com a permissão <em>ads_read</em>. A trakfy não cria, edita nem pausa anúncios.
           </li>
           <li>
             <strong className="text-fg">Pedidos das plataformas de venda, quando você conecta:</strong> valor, status

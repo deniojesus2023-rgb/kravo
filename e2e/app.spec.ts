@@ -116,7 +116,7 @@ test('verde-limão só em marca, CTA, foco e aba ativa', async ({ page }) => {
           return props.some((p) => s[p] === lime && !(p.startsWith('border') && s.borderTopWidth === '0px' && s.borderBottomWidth === '0px'));
         })
         .filter((el) => {
-          const inLogo = el.closest('svg') && el.closest('a[aria-label^="kavro"], header');
+          const inLogo = el.closest('svg') && el.closest('a[aria-label^="trakfy"], header');
           const cta = el.matches('a[href="/ofertas/nova"]') && el.textContent?.includes('Nova oferta');
           const activeTab = el.matches('nav[aria-label="Seções da oferta"] a[aria-current="page"]');
           return !(inLogo || cta || activeTab);

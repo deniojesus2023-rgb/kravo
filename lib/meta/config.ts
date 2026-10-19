@@ -8,7 +8,7 @@ export interface MetaEnv {
   graphVersion: string;
 }
 
-/** Só a leitura de métricas: a kavro não cria, edita nem pausa anúncios. */
+/** Só a leitura de métricas: a trakfy não cria, edita nem pausa anúncios. */
 export const META_SCOPES = ['ads_read'] as const;
 
 export function getMetaEnv(): MetaEnv | null {

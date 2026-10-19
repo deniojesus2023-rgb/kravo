@@ -1,5 +1,5 @@
 /**
- * Tipos de domínio da kavro. Seguem docs/arquitetura.md:
+ * Tipos de domínio da trakfy. Seguem docs/arquitetura.md:
  * - `Offer` ↔ tabela `offers`
  * - `DailyMetric` ↔ `daily_metrics` (lado Meta: gasto, impressões, cliques, compras reportadas)
  * - `DailySales` ↔ `orders` agregados por dia (lado plataforma de vendas)
