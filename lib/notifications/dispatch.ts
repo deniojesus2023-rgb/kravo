@@ -57,10 +57,10 @@ export async function notifyOrderEvents(userId: string, events: OrderEvent[], de
   const prefs = await deps.preferences(userId);
   const wanted = events.filter((e) => prefs[PREFERENCE_FOR_KIND[e.kind]]);
   if (wanted.length === 0) return { created: 0, delivered: 0 };
-  const names = await deps.offerNames(userId, [...new Set(wanted.map((e) => e.offerId))]);
+  const names = await deps.offerNames(userId, [...new Set(wanted.flatMap((e) => (e.offerId ? [e.offerId] : [])))]);
   return deliver(
     userId,
-    wanted.map((e) => ({ kind: e.kind, dedupeKey: e.dedupeKey, ...formatOrderEvent(e, names.get(e.offerId) ?? 'Oferta', prefs.hide_amounts) })),
+    wanted.map((e) => ({ kind: e.kind, dedupeKey: e.dedupeKey, ...formatOrderEvent(e, (e.offerId ? names.get(e.offerId) : null) ?? e.label ?? 'Venda', prefs.hide_amounts) })),
     deps,
   );
 }

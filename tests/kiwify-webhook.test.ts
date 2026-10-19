@@ -158,6 +158,8 @@ describe('processWebhookBody (modo URL)', () => {
     expect(r.outcome).toEqual({ kind: 'sem_oferta' });
     expect(r.product).toEqual({ id: 'prod-vasos', name: 'Protocolo Vasos' });
     expect(saved.size).toBe(0);
+    // Mesmo sem oferta a venda avisa (o dono precisa saber), com o nome do produto e a mesma chave de deduplicação.
+    expect(r.events).toEqual([expect.objectContaining({ kind: 'venda_aprovada', dedupeKey: 'venda:ord-123', offerId: null, label: 'Protocolo Vasos', amountCents: 14990 })]);
     const usd = await run(fakeStore().store, aviso({ Commissions: { charge_amount: 100, currency: 'USD' } }));
     expect(usd.outcome).toEqual({ kind: 'ignorado', reason: 'moeda' });
   });

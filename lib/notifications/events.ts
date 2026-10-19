@@ -9,7 +9,10 @@ export interface OrderEvent {
   /** Um aviso por pedido e tipo, mesmo que a leitura de vendas repita o pedido. */
   dedupeKey: string;
   orderId: string;
-  offerId: string;
+  /** `null` = o produto ainda não está ligado a nenhuma oferta (o aviso sai mesmo assim). */
+  offerId: string | null;
+  /** Nome do produto na plataforma de vendas, usado quando não há oferta. */
+  label: string | null;
   amountCents: number;
   paymentMethod: PaymentMethod | null;
 }
@@ -24,7 +27,7 @@ const recent = (iso: string | null, now: Date) => iso !== null && now.getTime() 
  * aviso: seriam 90 dias de pedidos antigos de uma vez.
  */
 export function detectOrderEvents(opts: {
-  orders: Array<MappedOrder & { offerId: string }>;
+  orders: Array<MappedOrder & { offerId: string | null }>;
   previous: Map<string, OrderStatus>;
   now: Date;
   notify: boolean;
@@ -33,7 +36,7 @@ export function detectOrderEvents(opts: {
   const out: OrderEvent[] = [];
   for (const o of opts.orders) {
     const before = opts.previous.get(o.platformOrderId);
-    const base = { orderId: o.platformOrderId, offerId: o.offerId, amountCents: o.amountCents, paymentMethod: o.paymentMethod };
+    const base = { orderId: o.platformOrderId, offerId: o.offerId, label: o.productName, amountCents: o.amountCents, paymentMethod: o.paymentMethod };
     const add = (kind: OrderEventKind, key: string) => out.push({ ...base, kind, dedupeKey: `${key}:${o.platformOrderId}` });
 
     if (o.status === 'aprovado' && before !== 'aprovado' && recent(o.approvedAt, opts.now)) add('venda_aprovada', 'venda');
