@@ -33,7 +33,7 @@ A documentação pública **não descreve o corpo do aviso**. A leitura é toler
 - `paid`, `approved`, `refund_requested` e `pending_refund` → aprovado. `refunded` → reembolsado e `chargedback` → chargeback (valor todo). `refused` → cancelado. `pending`, `processing`, `waiting_payment`, `authorized` → pendente. Status novo: ignorado e contado.
 - Sem `approved_date`, a data de criação vale (o banco exige data de aprovação).
 - **Oferta ↔ produto:** `offers.sales_product_id`, escolhido em Integrações. Pedido de produto sem oferta não é gravado. **Oferta sem produto ligado continua com lucro e ROAS real desconhecidos** (nunca "Pausar" por falta de pedidos).
-- **Campanha e anúncio:** ids numéricos longos nas UTMs (`utm_campaign`, `utm_content`) são comparados com `campaigns.meta_campaign_id` e `ads.meta_ad_id`. Padrão recomendado nos anúncios: `utm_campaign={{campaign.name}}|{{campaign.id}}` e `utm_content={{ad.name}}|{{ad.id}}`.
+- **Campanha e anúncio:** ids numéricos longos nas UTMs (`utm_campaign`, `utm_content`) são comparados com `campaigns.meta_campaign_id` e `ads.meta_ad_id`. Padrão mostrado em Nova oferta: `utm_campaign={{campaign.name}}|{{campaign.id}}`, `utm_content={{ad.name}}|{{ad.id}}` e `utm_term={{adset.name}}|{{adset.id}}`.
 
 ## Não validado
 

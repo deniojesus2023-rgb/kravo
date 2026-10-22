@@ -11,12 +11,6 @@ const fail = (what: string) => new Error(`falha ao ${what}`);
 
 export function supabaseSyncStore(admin: SupabaseClient, userId: string): SyncStore {
   return {
-    async offers() {
-      const { data, error } = await admin.from('offers').select('id, code').eq('user_id', userId).neq('status', 'arquivada');
-      if (error) throw fail('ler ofertas');
-      return (data ?? []).map((o) => ({ id: o.id as string, code: o.code as string }));
-    },
-
     async campaignsOfAccount(adAccountId) {
       const { data, error } = await admin
         .from('campaigns')

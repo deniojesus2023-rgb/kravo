@@ -143,18 +143,6 @@ export function parseEntityInsight(row: InsightRow, level: InsightLevel): Parsed
   return { ...base, entityId: String(entityId), campaignName: String(name ?? entityId), adsetId: row.adset_id ? String(row.adset_id) : null };
 }
 
-/** Código da oferta no nome da campanha: OFERTA_ESTRUTURA_PÚBLICO → "OFERTA". `null` fora do padrão. */
-export function offerCodeFromCampaignName(name: string): string | null {
-  const first = name.normalize('NFD').replace(/[̀-ͯ]/g, '').split('_')[0]?.trim().toUpperCase() ?? '';
-  return /^[A-Z0-9]{2,12}$/.test(first) ? first : null;
-}
-
-export function matchOfferId(campaignName: string, offers: Array<{ id: string; code: string }>): string | null {
-  const code = offerCodeFromCampaignName(campaignName);
-  if (!code) return null;
-  return offers.find((o) => o.code.toUpperCase() === code)?.id ?? null;
-}
-
 export const campaignStatus = (effective: string | undefined): 'ativa' | 'pausada' => (effective === 'ACTIVE' ? 'ativa' : 'pausada');
 
 /** Orçamento diário em centavos (a Meta devolve a menor unidade da moeda). `null` quando não há. */

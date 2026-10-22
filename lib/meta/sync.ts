@@ -6,7 +6,6 @@
 import {
   campaignStatus,
   dailyBudgetCents,
-  matchOfferId,
   parseEntityInsight,
   planWindow,
   type InsightLevel,
@@ -56,7 +55,6 @@ export interface MetricUpsert {
 }
 
 export interface SyncStore {
-  offers(): Promise<Array<{ id: string; code: string }>>;
   campaignsOfAccount(adAccountId: string): Promise<CampaignRecord[]>;
   upsertCampaigns(adAccountId: string, rows: CampaignUpsert[]): Promise<CampaignRecord[]>;
   /** `campaignId` e `adsetId` são ids internos. */
@@ -92,8 +90,7 @@ export async function syncAdAccount(opts: {
   const { graph, store, token, account, today, now } = opts;
   if (account.currency !== 'BRL') throw new Error('moeda_nao_suportada');
 
-  const [offers, existing, listed] = await Promise.all([
-    store.offers(),
+  const [existing, listed] = await Promise.all([
     store.campaignsOfAccount(account.id),
     graph.campaigns(token, account.metaAccountId),
   ]);
@@ -116,8 +113,8 @@ export async function syncAdAccount(opts: {
     name: c.name,
     status: campaignStatus(c.effective_status),
     dailyBudgetCents: dailyBudgetCents(c.daily_budget),
-    // O vínculo manual (offer_id já preenchido) nunca é trocado pelo padrão do nome.
-    offerId: known.get(c.id)?.offerId ?? matchOfferId(c.name, offers),
+    // O vínculo com a oferta é sempre escolhido pelo usuário (Nova oferta). A sincronização nunca liga campanhas pelo nome.
+    offerId: known.get(c.id)?.offerId ?? null,
   }));
 
   const saved = upserts.length > 0 ? await store.upsertCampaigns(account.id, upserts) : [];

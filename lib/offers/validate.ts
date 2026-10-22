@@ -73,6 +73,6 @@ export function validateOffer(raw: { name: string; code: string; salesPlatform: 
   return { ok: true, value: { name, code, salesPlatform, priceCents, checkoutUrl } };
 }
 
+/** Nome e ID juntos: o nome ajuda a ler; o ID (que o Meta preenche) é o que a trakfy usa para ligar o pedido à campanha e ao anúncio. */
 export const UTM_PATTERN =
-  'utm_source=meta&utm_medium=paid&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term={{adset.name}}';
-export const CAMPAIGN_NAME_PATTERN = 'OFERTA_ESTRUTURA_PÚBLICO';
+  'utm_source=meta&utm_medium=paid&utm_campaign={{campaign.name}}|{{campaign.id}}&utm_content={{ad.name}}|{{ad.id}}&utm_term={{adset.name}}|{{adset.id}}';

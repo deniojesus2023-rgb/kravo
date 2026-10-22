@@ -63,7 +63,7 @@ export function NewOfferForm({
   };
 
   const name = field('name', 'Nome da oferta');
-  const code = field('code', 'Código das campanhas', 'Prefixo dos nomes de campanha: CÓDIGO_ESTRUTURA_PÚBLICO. Ex.: VASOS.');
+  const code = field('code', 'Código da oferta', 'Identificador interno, de 2 a 12 letras ou números. Ex.: VASOS.');
   const platform = field('salesPlatform', 'Plataforma de vendas');
   const price = field('price', 'Preço (BRL)');
   const checkout = field('checkoutUrl', 'Link do checkout (opcional)');

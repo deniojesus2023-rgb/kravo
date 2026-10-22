@@ -8,8 +8,6 @@ import {
   INSIGHT_FIELDS_BY_LEVEL,
   INSIGHT_FIELDS,
   dailyBudgetCents,
-  matchOfferId,
-  offerCodeFromCampaignName,
   parseInsightRow,
   planWindow,
 } from '@/lib/meta/insights';
@@ -52,15 +50,6 @@ describe('insights: leitura dos números da Meta', () => {
     expect(parseInsightRow({ date_start: '2026-10-18' })).toBeNull();
     expect(parseInsightRow({ campaign_id: '1', date_start: 'ontem' })).toBeNull();
     expect(parseInsightRow({ campaign_id: '1', date_start: '2026-10-18' })).toMatchObject({ spendCents: 0, purchases: 0, purchaseValueCents: 0 });
-  });
-
-  it('código da oferta vem do início do nome da campanha', () => {
-    expect(offerCodeFromCampaignName('vasos_CBO_escala')).toBe('VASOS');
-    expect(offerCodeFromCampaignName('Ação_x')).toBe('ACAO');
-    expect(offerCodeFromCampaignName('Campanha de teste')).toBeNull();
-    const offers = [{ id: 'o1', code: 'vasos' }];
-    expect(matchOfferId('VASOS_X', offers)).toBe('o1');
-    expect(matchOfferId('OUTRA_X', offers)).toBeNull();
   });
 
   it('orçamento diário e janela', () => {
@@ -124,14 +113,16 @@ describe('Graph: só campos permitidos com ads_read', () => {
   });
 });
 
-function fakeStore(initial: CampaignRecord[] = [], offers = [{ id: 'o1', code: 'VASOS' }]) {
+/** Campanha que o usuário já ligou à oferta o1 (em Nova oferta). */
+const LINKED: CampaignRecord[] = [{ id: 'cx', metaCampaignId: '10', offerId: 'o1' }];
+
+function fakeStore(initial: CampaignRecord[] = []) {
   const campaigns = new Map(initial.map((c) => [c.metaCampaignId, { ...c }]));
   const metrics = new Map<string, MetricUpsert>();
   const adsets = new Map<string, string>();
   const ads = new Map<string, string>();
   let n = 0;
   const store: SyncStore = {
-    offers: async () => offers,
     campaignsOfAccount: async () => [...campaigns.values()],
     upsertCampaigns: async (_acc, rows) =>
       rows.map((r) => {
@@ -179,15 +170,15 @@ const account = { id: 'a1', metaAccountId: 'act_1', currency: 'BRL' };
 const now = new Date('2026-10-19T15:00:00Z');
 
 describe('syncAdAccount', () => {
-  it('liga campanhas ao código da oferta e só guarda métricas das ligadas', async () => {
-    const { store, metrics } = fakeStore();
+  it('só campanhas ligadas pelo usuário guardam métricas; as novas ficam sem oferta', async () => {
+    const { store, metrics } = fakeStore(LINKED);
     const r = await syncAdAccount({ graph: graphOf([row('10', '2026-10-18', '10'), row('11', '2026-10-18', '5')]), store, token: 't', account, today: '2026-10-19', now });
     expect(r).toMatchObject({ campaigns: 2, linked: 1, unlinked: 1, metricRows: 1, adsets: 0, ads: 0 });
     expect([...metrics.values()][0]!).toMatchObject({ offerId: 'o1', spendCents: 1000 });
   });
 
   it('rodar duas vezes não duplica (idempotente) e atualiza os valores', async () => {
-    const { store, metrics, campaigns } = fakeStore();
+    const { store, metrics, campaigns } = fakeStore(LINKED);
     const run = (spend: string) => syncAdAccount({ graph: graphOf([row('10', '2026-10-18', spend)]), store, token: 't', account, today: '2026-10-19', now });
     await run('10');
     await run('12');
@@ -196,8 +187,16 @@ describe('syncAdAccount', () => {
     expect([...metrics.values()][0]!.spendCents).toBe(1200);
   });
 
-  it('o vínculo manual de uma campanha nunca é trocado pelo nome', async () => {
-    const { store } = fakeStore([{ id: 'cx', metaCampaignId: '10', offerId: 'o2' }], [{ id: 'o1', code: 'VASOS' }, { id: 'o2', code: 'OUTRA' }]);
+  it('a sincronização nunca liga uma campanha a uma oferta pelo nome', async () => {
+    const { store, metrics } = fakeStore();
+    const g = graphOf([row('10', '2026-10-18', '10')], [{ id: '10', name: 'VASOS_CBO_ESCALA', effective_status: 'ACTIVE', daily_budget: '20000' }]);
+    const r = await syncAdAccount({ graph: g, store, token: 't', account, today: '2026-10-19', now });
+    expect(r).toMatchObject({ campaigns: 1, linked: 0, unlinked: 1, metricRows: 0 });
+    expect(metrics.size).toBe(0);
+  });
+
+  it('o vínculo escolhido pelo usuário é mantido', async () => {
+    const { store } = fakeStore([{ id: 'cx', metaCampaignId: '10', offerId: 'o2' }]);
     const g = graphOf([row('10', '2026-10-18', '10')]);
     await syncAdAccount({ graph: g, store, token: 't', account, today: '2026-10-19', now });
     const saved = await store.campaignsOfAccount('a1');
@@ -214,7 +213,7 @@ describe('syncAdAccount', () => {
   });
 
   it('conjuntos e anúncios: só de campanhas ligadas, com vídeo 3s, sem duplicar nem afetar o nível campanha', async () => {
-    const { store, metrics, adsets, ads } = fakeStore();
+    const { store, metrics, adsets, ads } = fakeStore(LINKED);
     const adsetRow = { campaign_id: '10', adset_id: '20', adset_name: 'CJ1', date_start: '2026-10-18', spend: '6', actions: [{ action_type: 'video_view', value: '40' }] };
     const adRow = { campaign_id: '10', adset_id: '20', ad_id: '30', ad_name: 'AD1', date_start: '2026-10-18', spend: '4', impressions: '100', actions: [{ action_type: 'video_view', value: '25' }] };
     const loose = { campaign_id: '11', adset_id: '21', adset_name: 'solto', date_start: '2026-10-18', spend: '1' };
@@ -250,7 +249,7 @@ describe('runMetaSync', () => {
       lastRunStartedAt: async () => null,
       recordRun,
       markDisconnected,
-      storeFor: () => fakeStore().store,
+      storeFor: () => fakeStore(LINKED).store,
       ...over,
     };
     return { db, recordRun, markDisconnected };
