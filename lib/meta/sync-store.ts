@@ -65,15 +65,27 @@ export function supabaseSyncStore(admin: SupabaseClient, userId: string): SyncSt
     async upsertAds(rows) {
       const out: Array<{ id: string; metaId: string }> = [];
       for (const part of chunks(rows)) {
-        const { data, error } = await admin
-          .from('ads')
-          .upsert(
-            part.map((r) => ({ user_id: userId, adset_id: r.adsetId, meta_ad_id: r.metaAdId, name: r.name, status: r.status })),
-            { onConflict: 'user_id,meta_ad_id' },
-          )
-          .select('id, meta_ad_id');
-        if (error) throw fail('gravar anúncios');
-        out.push(...(data ?? []).map((a) => ({ id: a.id as string, metaId: a.meta_ad_id as string })));
+        // Quem veio sem criativo (leitura falhou) é gravado sem essas colunas, para não apagar o que já existia.
+        for (const withCreative of [true, false]) {
+          const group = part.filter((r) => Boolean(r.creative) === withCreative);
+          if (group.length === 0) continue;
+          const { data, error } = await admin
+            .from('ads')
+            .upsert(
+              group.map((r) => ({
+                user_id: userId,
+                adset_id: r.adsetId,
+                meta_ad_id: r.metaAdId,
+                name: r.name,
+                status: r.status,
+                ...(r.creative ? { format: r.creative.format, thumbnail_url: r.creative.thumbnailUrl, duration_seconds: r.creative.durationSeconds } : {}),
+              })),
+              { onConflict: 'user_id,meta_ad_id' },
+            )
+            .select('id, meta_ad_id');
+          if (error) throw fail('gravar anúncios');
+          out.push(...(data ?? []).map((a) => ({ id: a.id as string, metaId: a.meta_ad_id as string })));
+        }
       }
       return out;
     },

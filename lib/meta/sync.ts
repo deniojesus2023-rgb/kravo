@@ -13,6 +13,9 @@ import {
   type MetaAd,
   type MetaAdset,
   type MetaCampaign,
+  type MetaCreative,
+  parseCreative,
+  type CreativeInfo,
   type ParsedEntityInsight,
 } from './insights';
 
@@ -20,7 +23,17 @@ export interface SyncGraph {
   campaigns(token: string, accountId: string): Promise<MetaCampaign[]>;
   adsets(token: string, accountId: string): Promise<MetaAdset[]>;
   ads(token: string, accountId: string): Promise<MetaAd[]>;
+  /** Opcionais: miniatura e formato dos criativos. Se faltarem ou falharem, a leitura segue sem eles. */
+  adCreatives?(token: string, accountId: string): Promise<MetaCreative[]>;
+  videoLengths?(token: string, videoIds: string[]): Promise<Map<string, number>>;
   insights(token: string, accountId: string, level: InsightLevel, since: string, until: string): Promise<InsightRow[]>;
+}
+
+/** Miniatura e formato do criativo do anúncio. Ausente = não foi possível ler (o valor anterior é mantido). */
+export interface AdCreativeData {
+  format: 'video' | 'imagem' | null;
+  thumbnailUrl: string | null;
+  durationSeconds: number | null;
 }
 
 export interface CampaignRecord {
@@ -59,7 +72,7 @@ export interface SyncStore {
   upsertCampaigns(adAccountId: string, rows: CampaignUpsert[]): Promise<CampaignRecord[]>;
   /** `campaignId` e `adsetId` são ids internos. */
   upsertAdsets(rows: Array<{ metaAdsetId: string; campaignId: string; name: string; status: 'ativa' | 'pausada' }>): Promise<Array<{ id: string; metaId: string }>>;
-  upsertAds(rows: Array<{ metaAdId: string; adsetId: string; name: string; status: 'ativa' | 'pausada' }>): Promise<Array<{ id: string; metaId: string }>>;
+  upsertAds(rows: Array<{ metaAdId: string; adsetId: string; name: string; status: 'ativa' | 'pausada'; creative?: AdCreativeData }>): Promise<Array<{ id: string; metaId: string }>>;
   upsertMetrics(rows: MetricUpsert[], syncedAt: string): Promise<void>;
 }
 
@@ -177,9 +190,10 @@ export async function syncAdAccount(opts: {
       adRows.push({ id: row.entityId, name: row.campaignName, adset_id: row.adsetId, campaign_id: row.campaignId });
     }
   }
+  const creativeByAd = adRows.length ? await readCreatives(graph, token, account.metaAccountId, adRows) : new Map<string, AdCreativeData>();
   const savedAds = adRows.length
     ? await store.upsertAds(
-        adRows.map((a) => ({ metaAdId: a.id, adsetId: adsetById.get(a.adset_id!)!, name: a.name, status: campaignStatus(a.effective_status) })),
+        adRows.map((a) => ({ metaAdId: a.id, adsetId: adsetById.get(a.adset_id!)!, name: a.name, status: campaignStatus(a.effective_status), ...(creativeByAd.has(a.id) ? { creative: creativeByAd.get(a.id)! } : {}) })),
       )
     : [];
   const adById = new Map(savedAds.map((a) => [a.metaId, a.id]));
@@ -221,6 +235,33 @@ export async function syncAdAccount(opts: {
     adsets: savedAdsets.length,
     ads: savedAds.length,
   };
+}
+
+/**
+ * Miniatura, formato e duração por anúncio. Falha aqui nunca derruba a leitura de métricas: devolve vazio
+ * e a trakfy mantém o que já tinha guardado.
+ */
+async function readCreatives(graph: SyncGraph, token: string, accountId: string, ads: MetaAd[]): Promise<Map<string, AdCreativeData>> {
+  const out = new Map<string, AdCreativeData>();
+  if (!graph.adCreatives) return out;
+  try {
+    const creatives = new Map((await graph.adCreatives(token, accountId)).map((c) => [c.id, parseCreative(c)] as const));
+    const infoOf = (a: MetaAd): CreativeInfo | undefined => (a.creative?.id ? creatives.get(a.creative.id) : undefined);
+    const videoIds = [...new Set(ads.map((a) => infoOf(a)?.videoId).filter((v): v is string => Boolean(v)))].slice(0, 300);
+    let lengths = new Map<string, number>();
+    try {
+      lengths = graph.videoLengths && videoIds.length ? await graph.videoLengths(token, videoIds) : lengths;
+    } catch {
+      // Sem a duração o card mostra só "Vídeo".
+    }
+    for (const a of ads) {
+      const info = infoOf(a);
+      if (info) out.set(a.id, { format: info.format, thumbnailUrl: info.thumbnailUrl, durationSeconds: info.videoId ? (lengths.get(info.videoId) ?? null) : null });
+    }
+  } catch {
+    // Mantém o que já estava guardado.
+  }
+  return out;
 }
 
 /**

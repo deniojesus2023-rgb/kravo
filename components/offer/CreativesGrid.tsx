@@ -1,3 +1,4 @@
+import { CreativeThumb } from './CreativeThumb';
 import { formatBRL, formatInt, formatPercent, formatRoas } from '@/lib/format';
 import type { CreativeRow } from '@/lib/creatives/read';
 import { CREATIVE_LABELS, type CreativeTag } from '@/lib/rules';
@@ -9,6 +10,14 @@ const TAG_CLASS: Record<CreativeTag, string> = {
 };
 
 const dash = '—';
+
+function formatLabel(c: CreativeRow): string {
+  if (c.format === 'video') {
+    const d = c.durationSeconds;
+    return d ? `Vídeo · ${Math.floor(d / 60)}:${String(d % 60).padStart(2, '0')}` : 'Vídeo';
+  }
+  return c.format === 'imagem' ? 'Imagem' : '';
+}
 
 function Metric({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
@@ -26,9 +35,10 @@ export function CreativesGrid({ rows, salesConnected }: { rows: CreativeRow[]; s
         const tone = c.roas === null ? '' : c.roas >= 2.5 ? 'text-profit' : c.roas < 1.5 ? 'text-loss' : '';
         return (
           <li key={c.id} className="card box-border flex min-w-0 flex-col gap-3 p-3">
+            <CreativeThumb url={c.thumbnailUrl} isVideo={c.format === 'video'} label={formatLabel(c)} rank={i + 1} />
             <div className="flex min-w-0 flex-col gap-1.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="num text-[11px] text-fg-muted">#{i + 1}</span>
+                <span className="sr-only">Posição {i + 1}</span>
                 <span className="text-[11.5px] text-fg-muted">{c.status === 'ativa' ? 'Ativo' : 'Pausado'}</span>
               </div>
               <span className="num truncate text-[12px] font-medium" title={c.name}>

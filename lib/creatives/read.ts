@@ -7,6 +7,10 @@ export interface CreativeRow {
   id: string;
   name: string;
   status: 'ativa' | 'pausada';
+  format: 'video' | 'imagem' | null;
+  durationSeconds: number | null;
+  /** Link da CDN do Meta; expira e é renovado a cada leitura completa. */
+  thumbnailUrl: string | null;
   spendCents: number;
   impressions: number;
   linkClicks: number;
@@ -77,11 +81,11 @@ export async function loadCreatives(supabase: SupabaseClient, offerId: string, r
   }
 
   const ids = [...new Set([...byAd.keys(), ...sales.keys()])];
-  const names = new Map<string, { name: string; status: 'ativa' | 'pausada' }>();
+  const names = new Map<string, { name: string; status: 'ativa' | 'pausada'; format: 'video' | 'imagem' | null; duration: number | null; thumb: string | null }>();
   for (let i = 0; i < ids.length; i += 100) {
-    const { data, error } = await supabase.from('ads').select('id, name, status').in('id', ids.slice(i, i + 100));
+    const { data, error } = await supabase.from('ads').select('id, name, status, format, duration_seconds, thumbnail_url').in('id', ids.slice(i, i + 100));
     if (error) throw new Error(`Falha ao ler anúncios: ${error.message}`);
-    for (const a of data ?? []) names.set(a.id, { name: a.name, status: a.status });
+    for (const a of data ?? []) names.set(a.id, { name: a.name, status: a.status, format: a.format, duration: a.duration_seconds, thumb: a.thumbnail_url });
   }
 
   const rows = ids
@@ -92,6 +96,9 @@ export async function loadCreatives(supabase: SupabaseClient, offerId: string, r
         id,
         name: names.get(id)?.name ?? 'Anúncio sem nome',
         status: names.get(id)?.status ?? 'pausada',
+        format: names.get(id)?.format ?? null,
+        durationSeconds: names.get(id)?.duration ?? null,
+        thumbnailUrl: names.get(id)?.thumb ?? null,
         spendCents: m.spend,
         impressions: m.imp,
         linkClicks: m.clicks,
