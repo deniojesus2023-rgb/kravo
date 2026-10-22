@@ -19,7 +19,7 @@ const button = 'inline-flex h-10 items-center rounded-lg border border-line-stro
 function Message({ state }: { state: PixelState }) {
   if (!state) return null;
   return (
-    <p role={state.error ? 'alert' : 'status'} className={`text-[13px] ${state.error ? 'text-negative' : 'text-positive'}`}>
+    <p role={state.error ? 'alert' : 'status'} className={`text-[13px] ${state.error ? 'text-loss' : 'text-profit'}`}>
       {state.error ?? state.ok}
     </p>
   );
