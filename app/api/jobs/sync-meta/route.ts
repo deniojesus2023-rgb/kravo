@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { NextResponse, type NextRequest } from 'next/server';
+import { after, NextResponse, type NextRequest } from 'next/server';
 import { getMetaEnv } from '@/lib/meta/config';
 import { createGraph } from '@/lib/meta/graph';
 import { runMetaSync } from '@/lib/meta/run';
@@ -26,6 +26,17 @@ export async function GET(request: NextRequest) {
 
   const graph = createGraph(env);
   const db = supabaseRunDb(admin);
+
+  // ?modo=leve (agendador de poucos minutos): responde logo e lê só as métricas de hoje em segundo plano.
+  if (request.nextUrl.searchParams.get('modo') === 'leve') {
+    after(async () => {
+      for (const userId of await usersToSync(admin).catch(() => [])) {
+        await runMetaSync({ userId, graph, db, mode: 'leve' }).catch(() => undefined);
+      }
+    });
+    return NextResponse.json({ aceito: true, modo: 'leve' }, { status: 202 });
+  }
+
   let users = 0;
   let ok = 0;
   let failed = 0;

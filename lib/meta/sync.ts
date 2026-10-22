@@ -6,7 +6,6 @@
 import {
   campaignStatus,
   dailyBudgetCents,
-  matchOfferId,
   parseEntityInsight,
   planWindow,
   type InsightLevel,
@@ -56,7 +55,6 @@ export interface MetricUpsert {
 }
 
 export interface SyncStore {
-  offers(): Promise<Array<{ id: string; code: string }>>;
   campaignsOfAccount(adAccountId: string): Promise<CampaignRecord[]>;
   upsertCampaigns(adAccountId: string, rows: CampaignUpsert[]): Promise<CampaignRecord[]>;
   /** `campaignId` e `adsetId` são ids internos. */
@@ -88,12 +86,15 @@ export async function syncAdAccount(opts: {
   /** Hoje em America/Sao_Paulo, "YYYY-MM-DD". */
   today: string;
   now: Date;
+  /** Leitura leve: só o gasto e as métricas de HOJE das campanhas já ligadas a uma oferta (uma chamada à Meta). */
+  light?: boolean;
 }): Promise<AccountResult> {
   const { graph, store, token, account, today, now } = opts;
   if (account.currency !== 'BRL') throw new Error('moeda_nao_suportada');
 
-  const [offers, existing, listed] = await Promise.all([
-    store.offers(),
+  if (opts.light) return syncLight({ graph, store, token, account, today, now });
+
+  const [existing, listed] = await Promise.all([
     store.campaignsOfAccount(account.id),
     graph.campaigns(token, account.metaAccountId),
   ]);
@@ -116,8 +117,8 @@ export async function syncAdAccount(opts: {
     name: c.name,
     status: campaignStatus(c.effective_status),
     dailyBudgetCents: dailyBudgetCents(c.daily_budget),
-    // O vínculo manual (offer_id já preenchido) nunca é trocado pelo padrão do nome.
-    offerId: known.get(c.id)?.offerId ?? matchOfferId(c.name, offers),
+    // O vínculo com a oferta é sempre escolhido pelo usuário (Nova oferta). A sincronização nunca liga campanhas pelo nome.
+    offerId: known.get(c.id)?.offerId ?? null,
   }));
 
   const saved = upserts.length > 0 ? await store.upsertCampaigns(account.id, upserts) : [];
@@ -219,5 +220,48 @@ export async function syncAdAccount(opts: {
     metricRows: metrics.length,
     adsets: savedAdsets.length,
     ads: savedAds.length,
+  };
+}
+
+/**
+ * Leitura leve: não lista campanhas, conjuntos nem anúncios e não cria campanhas novas (isso é da leitura completa
+ * e do botão "Sincronizar agora"). Atualiza só as métricas de hoje das campanhas que o usuário já ligou a uma oferta.
+ */
+async function syncLight(opts: { graph: SyncGraph; store: SyncStore; token: string; account: AccountToSync; today: string; now: Date }): Promise<AccountResult> {
+  const { graph, store, token, account, today, now } = opts;
+  const existing = await store.campaignsOfAccount(account.id);
+  const linked = new Map(existing.filter((c) => c.offerId).map((c) => [c.metaCampaignId, c]));
+  const base = { campaigns: existing.length, linked: linked.size, unlinked: existing.length - linked.size, adsets: 0, ads: 0 };
+  if (linked.size === 0) return { ...base, metricRows: 0 };
+
+  const { since, until } = planWindow(today, false, true);
+  const rows = (await graph.insights(token, account.metaAccountId, 'campaign', since, until))
+    .map((r) => parseEntityInsight(r, 'campaign'))
+    .filter((r): r is ParsedEntityInsight => r !== null);
+
+  const metrics: MetricUpsert[] = [];
+  for (const row of rows) {
+    const campaign = linked.get(row.entityId);
+    if (campaign?.offerId) metrics.push(metricRow(row, 'campaign', campaign.id, campaign.offerId));
+  }
+  if (metrics.length > 0) await store.upsertMetrics(metrics, now.toISOString());
+  return { ...base, metricRows: metrics.length };
+}
+
+function metricRow(row: ParsedEntityInsight, level: InsightLevel, entityId: string, offerId: string): MetricUpsert {
+  return {
+    offerId,
+    level,
+    entityId,
+    date: row.date,
+    spendCents: row.spendCents,
+    impressions: row.impressions,
+    reach: row.reach,
+    linkClicks: row.linkClicks,
+    landingPageViews: row.landingPageViews,
+    videoViews3s: row.videoViews3s,
+    checkoutsInitiated: row.checkouts,
+    metaPurchases: row.purchases,
+    metaPurchaseValueCents: row.purchaseValueCents,
   };
 }

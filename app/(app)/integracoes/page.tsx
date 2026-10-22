@@ -102,7 +102,7 @@ export default async function IntegrationsPage({
       ? {
           tone: 'ok' as const,
           text: `Sincronizado: ${campaigns} ${campaigns === 1 ? 'campanha' : 'campanhas'}, ${linked} ligadas a ofertas.${
-            unlinked > 0 ? ` ${unlinked} sem oferta: o nome da campanha precisa começar com o código da oferta, como CODIGO_estrutura.` : ''
+            unlinked > 0 ? ` ${unlinked} ainda sem oferta: crie a oferta em Nova oferta e escolha as campanhas.` : ''
           }`,
         }
       : query.sync === 'erro'
@@ -226,8 +226,8 @@ export default async function IntegrationsPage({
               )}
               <p className="m-0 text-xs leading-relaxed text-fg-subtle">
                 Lê gasto, impressões, cliques e compras reportadas pelo Meta, por campanha e por dia, com janela de atribuição
-                de 7 dias de clique. Uma campanha só entra numa oferta se o nome começar com o código dela (por exemplo
-                VASOS_CBO_ESCALA). Sincroniza sozinha uma vez por dia.
+                de 7 dias de clique. As métricas de uma campanha só são guardadas depois que você a escolhe numa oferta, em Nova oferta.
+                Sincroniza sozinha uma vez por dia.
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 <form action={syncMetaNow}>

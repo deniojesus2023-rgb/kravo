@@ -68,7 +68,7 @@ Leitura rápida: `codigo 1` + "Error validating client secret" = chave secreta q
 - Código: `lib/meta/insights.ts` (leitura pura), `sync.ts` (núcleo por conta), `run.ts` (orquestração e erros), `sync-store.ts` (banco, chave de serviço), `app/api/jobs/sync-meta/route.ts` (agendador), `syncMetaNow` em `app/(app)/integracoes/actions.ts`.
 - Chamadas (todas só com `ads_read`): `/{act}/campaigns` (`id,name,effective_status,daily_budget`) e `/{act}/insights` (`level=campaign`, `time_increment=1`, `action_attribution_windows=["7d_click"]`, campos em `INSIGHT_FIELDS`). Teste impede campos fora das listas.
 - Janela: 30 dias na primeira vez de cada conta, depois os últimos 7 (a Meta reajusta a atribuição). Dias seguem o fuso da conta de anúncios; a tela avisa se diferir de America/Sao_Paulo.
-- Só contas escolhidas e em BRL. Métricas só de campanhas ligadas a uma oferta (nome começa com o código; vínculo já existente nunca é trocado).
+- Só contas escolhidas e em BRL. Métricas só de campanhas que o usuário ligou a uma oferta (Nova oferta lista as campanhas lidas do Meta e o usuário escolhe; **nada é ligado pelo nome da campanha**, e um vínculo existente nunca é trocado pela sincronização).
 - Compras: `purchase`, senão `omni_purchase`, nunca somadas. São o que o **Meta reporta**, não vendas reais.
 - Cada execução grava uma linha em `sync_runs` com código fixo de erro (`token_invalido`, `limite_da_meta`, `meta_erro`, `banco`). Código 190 desconecta e apaga a credencial. Nada de token ou mensagem da Meta vai para o log ou a tela.
 - Agendador: `vercel.json` (diário; o plano gratuito só permite isso). Defina `CRON_SECRET` na Vercel.
@@ -78,3 +78,14 @@ Leitura rápida: `codigo 1` + "Error validating client secret" = chave secreta q
 
 - Lidos junto com as campanhas (`/{act}/adsets`, `/{act}/ads`, `insights` com `level=adset|ad`), só os de campanhas ligadas a uma oferta. Métricas em `daily_metrics` nos níveis `adset` e `ad`, com `video_views_3s` (ação `video_view`). Os totais da oferta continuam usando só o nível `campaign`, para não somar o gasto duas vezes.
 - Ainda **sem tabela na interface** (abas Conjuntos e Anúncios) e sem criativos (`creatives`). Não validado contra a Meta real.
+
+## Atualização quase em tempo real do gasto
+
+O Meta **não avisa** quando o gasto muda (não há webhook de métricas), então a trakfy pergunta com frequência. Os números de conversão do próprio Meta ainda têm atraso de minutos a horas; lucro e ROAS real usam as vendas da Kiwify, que chegam na hora.
+
+- **Leitura leve** (`GET /api/jobs/sync-meta?modo=leve`, Bearer `CRON_SECRET`): responde 202 na hora e, em segundo plano, lê só o dia de hoje no nível campanha das campanhas **já ligadas a uma oferta**: uma chamada ao Meta por conta, sem listar nem criar campanhas, conjuntos ou anúncios. Agendada a cada 5 minutos por `supabase/agendamentos/meta-leve.sql` (pg_cron + pg_net; a Vercel gratuita só roda 1 vez por dia).
+- **Leitura completa:** diária (Vercel, `vercel.json`) e no botão "Sincronizar agora": últimos 7 dias (30 na primeira vez), campanhas, conjuntos e anúncios; corrige a atribuição que o Meta ajusta depois.
+- **Ao abrir o app** (`app/(app)/layout.tsx`): se a última leitura tem 2 minutos ou mais (15 depois de uma falha), dispara a leve em segundo plano, com trava por usuário. A tela se atualiza sozinha em seguida e de 2 em 2 minutos com a aba visível (`LiveRefresh`). Nunca na primeira vez: a primeira leitura é manual.
+- `sync_runs`: a leitura leve atualiza a última linha em vez de abrir uma por execução (`planRunRecord`); só uma falha nova abre linha.
+- Limite de uso do Meta (códigos 4, 17, 32, 613): a leitura falha com `limite_da_meta` e tenta de novo na vez seguinte. O limite sobe com o Acesso Avançado.
+- **Não validado contra a Meta real.**

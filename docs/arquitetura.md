@@ -16,7 +16,7 @@ A **oferta** está no centro. Quase toda tabela carrega `offer_id` e `user_id`. 
 | `ad_accounts` | contas de anúncio visíveis ao usuário, se estão selecionadas, BM |
 | `pixels` | pixels por conta de anúncio, ligados à oferta |
 | `sales_connections` | conexão com Kiwify, Hotmart, Eduzz, Shopify: credenciais criptografadas, status, última sincronização |
-| `campaigns`, `adsets`, `ads` | estrutura do Meta, com `offer_id` (pelo padrão de nome OFERTA_ESTRUTURA_PÚBLICO ou vínculo manual) |
+| `campaigns`, `adsets`, `ads` | estrutura do Meta, com `offer_id` (vínculo escolhido pelo usuário em Nova oferta; nunca pelo nome da campanha) |
 | `creatives` | criativo (formato, duração, nome padronizado), ligado ao anúncio |
 | `daily_metrics` | métricas por dia e por nível (campanha, conjunto, anúncio, criativo): gasto, impressões, cliques, CPM, CPC, CTR, frequência, views de 3 s |
 | `orders` | pedidos vindos das plataformas: oferta, valor, status (aprovado, reembolsado, chargeback), UTMs, `event_id`, data |

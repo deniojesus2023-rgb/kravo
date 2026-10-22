@@ -37,6 +37,7 @@ test.describe.serial('oferta com dados reais do usuário', () => {
 
     await page.getByRole('link', { name: 'Cadastrar primeira oferta' }).click();
     await expect(page).toHaveURL(/\/ofertas\/nova$/);
+    await page.getByText('Cadastrar sem escolher campanhas agora (manual)').click();
 
     // Validação por campo.
     await page.getByRole('button', { name: 'Criar oferta' }).click();
@@ -46,7 +47,7 @@ test.describe.serial('oferta com dados reais do usuário', () => {
 
     // Os valores digitados são mantidos quando há erro.
     await page.getByLabel('Nome da oferta').fill('Oferta E2E');
-    await page.getByLabel('Código das campanhas').fill('e2edemo');
+    await page.getByLabel('Código da oferta').fill('e2edemo');
     await page.getByLabel('Preço (BRL)').fill('abc');
     await page.getByRole('button', { name: 'Criar oferta' }).click();
     await expect(page.getByText('Informe um preço válido')).toBeVisible();
@@ -78,8 +79,9 @@ test.describe.serial('oferta com dados reais do usuário', () => {
 
     // Código repetido.
     await page.goto('/ofertas/nova');
+    await page.getByText('Cadastrar sem escolher campanhas agora (manual)').click();
     await page.getByLabel('Nome da oferta').fill('Outra');
-    await page.getByLabel('Código das campanhas').fill('E2EDEMO');
+    await page.getByLabel('Código da oferta').fill('E2EDEMO');
     await page.getByLabel('Preço (BRL)').fill('10');
     await page.getByRole('button', { name: 'Criar oferta' }).click();
     await expect(page.getByText('Já existe uma oferta com este código.')).toBeVisible();
@@ -251,5 +253,24 @@ test.describe('Kiwify por URL (conta real, só leitura)', () => {
     await expect(card.getByRole('button', { name: 'Gerar URL do webhook' }).or(card.getByText('Cole esta URL na Kiwify'))).toBeVisible();
     // Sem segredos na tela: nada de client_secret preenchido, e a chave de API fica numa seção recolhida.
     await expect(card.locator('input[type="password"]:visible')).toHaveCount(0);
+  });
+});
+
+test.describe('nova oferta a partir das campanhas do Meta (conta real, só leitura)', () => {
+  test('mostra o fluxo (campanhas, oferta, gateway) ou explica o que falta; sem padrão de nome', async ({ page }) => {
+    await login(page);
+    await page.goto('/ofertas/nova');
+    await expect(page.getByRole('heading', { level: 1, name: 'Nova oferta' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '1. Campanhas do Meta' }).or(page.getByRole('heading', { name: /Nenhuma campanha lida|Todas as campanhas|Conecte o Meta/ }))).toBeVisible();
+    await expect(page.getByText('Cadastrar sem escolher campanhas agora (manual)')).toBeVisible();
+    // O padrão de UTM usa os IDs do Meta, e nada fala em padrão de nome de campanha.
+    await expect(page.getByText('{{campaign.id}}', { exact: false }).first()).toBeVisible();
+    await expect(page.getByText('OFERTA_ESTRUTURA_PÚBLICO')).toHaveCount(0);
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+    }
   });
 });

@@ -9,17 +9,20 @@ create extension if not exists pg_net;
 
 select cron.schedule('trakfy-resumo-manha', '0 11 * * *', $$
   select net.http_get(url := '[ASSIM: https://seu-dominio]/api/jobs/resumo?slot=manha',
-    headers := jsonb_build_object('Authorization', 'Bearer [ASSIM: CRON_SECRET]'));
+    headers := jsonb_build_object('Authorization', 'Bearer [ASSIM: CRON_SECRET]'),
+    timeout_milliseconds := 60000);
 $$);
 
 select cron.schedule('trakfy-resumo-tarde', '0 17 * * *', $$
   select net.http_get(url := '[ASSIM: https://seu-dominio]/api/jobs/resumo?slot=tarde',
-    headers := jsonb_build_object('Authorization', 'Bearer [ASSIM: CRON_SECRET]'));
+    headers := jsonb_build_object('Authorization', 'Bearer [ASSIM: CRON_SECRET]'),
+    timeout_milliseconds := 60000);
 $$);
 
 select cron.schedule('trakfy-resumo-noite', '0 23 * * *', $$
   select net.http_get(url := '[ASSIM: https://seu-dominio]/api/jobs/resumo?slot=noite',
-    headers := jsonb_build_object('Authorization', 'Bearer [ASSIM: CRON_SECRET]'));
+    headers := jsonb_build_object('Authorization', 'Bearer [ASSIM: CRON_SECRET]'),
+    timeout_milliseconds := 60000);
 $$);
 
 -- Para remover: select cron.unschedule('trakfy-resumo-manha'); (idem tarde e noite).

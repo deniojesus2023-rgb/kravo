@@ -8,12 +8,11 @@ import {
   INSIGHT_FIELDS_BY_LEVEL,
   INSIGHT_FIELDS,
   dailyBudgetCents,
-  matchOfferId,
-  offerCodeFromCampaignName,
   parseInsightRow,
   planWindow,
 } from '@/lib/meta/insights';
-import { errorCodeOf, runMetaSync, type RunDb } from '@/lib/meta/run';
+import { errorCodeOf, planRunRecord, runMetaSync, type RunDb } from '@/lib/meta/run';
+import { claimRefresh, shouldRefresh } from '@/lib/meta/refresh';
 import { syncAdAccount, type CampaignRecord, type MetricUpsert, type SyncStore } from '@/lib/meta/sync';
 import type { MetaEnv } from '@/lib/meta/config';
 
@@ -52,15 +51,6 @@ describe('insights: leitura dos números da Meta', () => {
     expect(parseInsightRow({ date_start: '2026-10-18' })).toBeNull();
     expect(parseInsightRow({ campaign_id: '1', date_start: 'ontem' })).toBeNull();
     expect(parseInsightRow({ campaign_id: '1', date_start: '2026-10-18' })).toMatchObject({ spendCents: 0, purchases: 0, purchaseValueCents: 0 });
-  });
-
-  it('código da oferta vem do início do nome da campanha', () => {
-    expect(offerCodeFromCampaignName('vasos_CBO_escala')).toBe('VASOS');
-    expect(offerCodeFromCampaignName('Ação_x')).toBe('ACAO');
-    expect(offerCodeFromCampaignName('Campanha de teste')).toBeNull();
-    const offers = [{ id: 'o1', code: 'vasos' }];
-    expect(matchOfferId('VASOS_X', offers)).toBe('o1');
-    expect(matchOfferId('OUTRA_X', offers)).toBeNull();
   });
 
   it('orçamento diário e janela', () => {
@@ -124,14 +114,16 @@ describe('Graph: só campos permitidos com ads_read', () => {
   });
 });
 
-function fakeStore(initial: CampaignRecord[] = [], offers = [{ id: 'o1', code: 'VASOS' }]) {
+/** Campanha que o usuário já ligou à oferta o1 (em Nova oferta). */
+const LINKED: CampaignRecord[] = [{ id: 'cx', metaCampaignId: '10', offerId: 'o1' }];
+
+function fakeStore(initial: CampaignRecord[] = []) {
   const campaigns = new Map(initial.map((c) => [c.metaCampaignId, { ...c }]));
   const metrics = new Map<string, MetricUpsert>();
   const adsets = new Map<string, string>();
   const ads = new Map<string, string>();
   let n = 0;
   const store: SyncStore = {
-    offers: async () => offers,
     campaignsOfAccount: async () => [...campaigns.values()],
     upsertCampaigns: async (_acc, rows) =>
       rows.map((r) => {
@@ -179,15 +171,15 @@ const account = { id: 'a1', metaAccountId: 'act_1', currency: 'BRL' };
 const now = new Date('2026-10-19T15:00:00Z');
 
 describe('syncAdAccount', () => {
-  it('liga campanhas ao código da oferta e só guarda métricas das ligadas', async () => {
-    const { store, metrics } = fakeStore();
+  it('só campanhas ligadas pelo usuário guardam métricas; as novas ficam sem oferta', async () => {
+    const { store, metrics } = fakeStore(LINKED);
     const r = await syncAdAccount({ graph: graphOf([row('10', '2026-10-18', '10'), row('11', '2026-10-18', '5')]), store, token: 't', account, today: '2026-10-19', now });
     expect(r).toMatchObject({ campaigns: 2, linked: 1, unlinked: 1, metricRows: 1, adsets: 0, ads: 0 });
     expect([...metrics.values()][0]!).toMatchObject({ offerId: 'o1', spendCents: 1000 });
   });
 
   it('rodar duas vezes não duplica (idempotente) e atualiza os valores', async () => {
-    const { store, metrics, campaigns } = fakeStore();
+    const { store, metrics, campaigns } = fakeStore(LINKED);
     const run = (spend: string) => syncAdAccount({ graph: graphOf([row('10', '2026-10-18', spend)]), store, token: 't', account, today: '2026-10-19', now });
     await run('10');
     await run('12');
@@ -196,8 +188,16 @@ describe('syncAdAccount', () => {
     expect([...metrics.values()][0]!.spendCents).toBe(1200);
   });
 
-  it('o vínculo manual de uma campanha nunca é trocado pelo nome', async () => {
-    const { store } = fakeStore([{ id: 'cx', metaCampaignId: '10', offerId: 'o2' }], [{ id: 'o1', code: 'VASOS' }, { id: 'o2', code: 'OUTRA' }]);
+  it('a sincronização nunca liga uma campanha a uma oferta pelo nome', async () => {
+    const { store, metrics } = fakeStore();
+    const g = graphOf([row('10', '2026-10-18', '10')], [{ id: '10', name: 'VASOS_CBO_ESCALA', effective_status: 'ACTIVE', daily_budget: '20000' }]);
+    const r = await syncAdAccount({ graph: g, store, token: 't', account, today: '2026-10-19', now });
+    expect(r).toMatchObject({ campaigns: 1, linked: 0, unlinked: 1, metricRows: 0 });
+    expect(metrics.size).toBe(0);
+  });
+
+  it('o vínculo escolhido pelo usuário é mantido', async () => {
+    const { store } = fakeStore([{ id: 'cx', metaCampaignId: '10', offerId: 'o2' }]);
     const g = graphOf([row('10', '2026-10-18', '10')]);
     await syncAdAccount({ graph: g, store, token: 't', account, today: '2026-10-19', now });
     const saved = await store.campaignsOfAccount('a1');
@@ -214,7 +214,7 @@ describe('syncAdAccount', () => {
   });
 
   it('conjuntos e anúncios: só de campanhas ligadas, com vídeo 3s, sem duplicar nem afetar o nível campanha', async () => {
-    const { store, metrics, adsets, ads } = fakeStore();
+    const { store, metrics, adsets, ads } = fakeStore(LINKED);
     const adsetRow = { campaign_id: '10', adset_id: '20', adset_name: 'CJ1', date_start: '2026-10-18', spend: '6', actions: [{ action_type: 'video_view', value: '40' }] };
     const adRow = { campaign_id: '10', adset_id: '20', ad_id: '30', ad_name: 'AD1', date_start: '2026-10-18', spend: '4', impressions: '100', actions: [{ action_type: 'video_view', value: '25' }] };
     const loose = { campaign_id: '11', adset_id: '21', adset_name: 'solto', date_start: '2026-10-18', spend: '1' };
@@ -250,7 +250,7 @@ describe('runMetaSync', () => {
       lastRunStartedAt: async () => null,
       recordRun,
       markDisconnected,
-      storeFor: () => fakeStore().store,
+      storeFor: () => fakeStore(LINKED).store,
       ...over,
     };
     return { db, recordRun, markDisconnected };
@@ -283,5 +283,102 @@ describe('runMetaSync', () => {
     expect(await runMetaSync({ userId: 'u', graph: graphOf([]), db: none, now })).toEqual({ ok: false, code: 'sem_contas' });
     const recent = dbOf({ lastRunStartedAt: async () => '2026-10-19T14:59:00Z' }).db;
     expect(await runMetaSync({ userId: 'u', graph: graphOf([]), db: recent, now, minIntervalSeconds: 120 })).toEqual({ ok: false, code: 'muito_recente' });
+  });
+});
+
+describe('leitura leve (a cada poucos minutos)', () => {
+  const light = (store: SyncStore, g = graphOf([row('10', '2026-10-19', '12')])) =>
+    syncAdAccount({ graph: g, store, token: 't', account, today: '2026-10-19', now, light: true });
+
+  it('janela é só hoje', () => {
+    expect(planWindow('2026-10-19', false, true)).toEqual({ since: '2026-10-19', until: '2026-10-19' });
+    expect(planWindow('2026-10-19', true, true)).toEqual({ since: '2026-10-19', until: '2026-10-19' });
+  });
+
+  it('uma única chamada à Meta (insights de campanha de hoje); não lista nem cria campanhas, conjuntos ou anúncios', async () => {
+    const { store, metrics, campaigns, adsets, ads } = fakeStore(LINKED);
+    const g = graphOf([row('10', '2026-10-19', '12'), row('11', '2026-10-19', '5')]);
+    const r = await light(store, g);
+    expect(g.insights).toHaveBeenCalledTimes(1);
+    expect(g.insights).toHaveBeenCalledWith('t', 'act_1', 'campaign', '2026-10-19', '2026-10-19');
+    expect(g.campaigns).not.toHaveBeenCalled();
+    expect(g.adsets).not.toHaveBeenCalled();
+    expect(g.ads).not.toHaveBeenCalled();
+    expect(r).toMatchObject({ campaigns: 1, linked: 1, unlinked: 0, metricRows: 1, adsets: 0, ads: 0 });
+    expect(campaigns.size).toBe(1); // a campanha 11 (sem oferta) não foi criada
+    expect(adsets.size + ads.size).toBe(0);
+    expect([...metrics.values()][0]).toMatchObject({ level: 'campaign', date: '2026-10-19', spendCents: 1200, offerId: 'o1' });
+  });
+
+  it('sem campanha ligada a uma oferta, nem chama a Meta', async () => {
+    const g = graphOf([row('10', '2026-10-19', '12')]);
+    const r = await light(fakeStore().store, g);
+    expect(g.insights).not.toHaveBeenCalled();
+    expect(r.metricRows).toBe(0);
+  });
+
+  it('repetir a leitura atualiza o gasto de hoje sem duplicar', async () => {
+    const { store, metrics } = fakeStore(LINKED);
+    await light(store, graphOf([row('10', '2026-10-19', '12')]));
+    await light(store, graphOf([row('10', '2026-10-19', '15.5')]));
+    expect(metrics.size).toBe(1);
+    expect([...metrics.values()][0]!.spendCents).toBe(1550);
+  });
+
+  it('runMetaSync em modo leve repassa o modo e avisa o registro', async () => {
+    const recordRun = vi.fn(async () => {});
+    const db: RunDb = {
+      connection: async () => ({ id: 'c', expiresAt: null, token: 't', accounts: [account] }),
+      lastRunStartedAt: async () => null,
+      recordRun,
+      markDisconnected: async () => {},
+      storeFor: () => fakeStore(LINKED).store,
+    };
+    const g = graphOf([row('10', '2026-10-19', '12')]);
+    expect(await runMetaSync({ userId: 'u', graph: g, db, now, mode: 'leve' })).toMatchObject({ ok: true, metricRows: 1 });
+    expect(g.campaigns).not.toHaveBeenCalled();
+    expect(recordRun).toHaveBeenCalledWith('u', expect.objectContaining({ light: true, ok: true }));
+  });
+
+  it('o registro das leituras leves atualiza a última linha; só uma falha nova abre linha', () => {
+    expect(planRunRecord(null, { ok: true, error: null, light: true })).toBe('insert');
+    expect(planRunRecord({ ok: true, error: null }, { ok: true, error: null, light: true })).toBe('update');
+    expect(planRunRecord({ ok: false, error: 'limite_da_meta' }, { ok: true, error: null, light: true })).toBe('update');
+    expect(planRunRecord({ ok: true, error: null }, { ok: false, error: 'meta_erro', light: true })).toBe('insert');
+    expect(planRunRecord({ ok: false, error: 'meta_erro' }, { ok: false, error: 'meta_erro', light: true })).toBe('update');
+    expect(planRunRecord({ ok: false, error: 'meta_erro' }, { ok: false, error: 'banco', light: true })).toBe('insert');
+    // A leitura completa e o botão sempre abrem linha.
+    expect(planRunRecord({ ok: true, error: null }, { ok: true, error: null })).toBe('insert');
+  });
+});
+
+describe('atualização ao abrir o app', () => {
+  const conn = (status: 'conectado' | 'expirando' | 'desconectado' | 'nao_conectado', delayMinutes: number | null, ok = true) => ({
+    status,
+    lastSync: delayMinutes === null ? null : { delayMinutes, ok },
+  });
+
+  it('atualiza quando a última leitura tem 2 minutos ou mais', () => {
+    expect(shouldRefresh(conn('conectado', 1))).toBe(false);
+    expect(shouldRefresh(conn('conectado', 2))).toBe(true);
+    expect(shouldRefresh(conn('expirando', 30))).toBe(true);
+  });
+
+  it('nunca na primeira vez (é manual), sem conexão ou desconectado', () => {
+    expect(shouldRefresh(conn('conectado', null))).toBe(false);
+    expect(shouldRefresh(conn('nao_conectado', 90))).toBe(false);
+    expect(shouldRefresh(conn('desconectado', 90))).toBe(false);
+  });
+
+  it('depois de uma falha espera 15 minutos, para não insistir num erro', () => {
+    expect(shouldRefresh(conn('conectado', 10, false))).toBe(false);
+    expect(shouldRefresh(conn('conectado', 15, false))).toBe(true);
+  });
+
+  it('várias navegações juntas disparam uma leitura só por usuário; outro usuário não é afetado', () => {
+    expect(claimRefresh('u-1', 1_000_000)).toBe(true);
+    expect(claimRefresh('u-1', 1_030_000)).toBe(false);
+    expect(claimRefresh('u-2', 1_030_000)).toBe(true);
+    expect(claimRefresh('u-1', 1_061_000)).toBe(true);
   });
 });

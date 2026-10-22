@@ -12,8 +12,9 @@ export type SyncOutcome =
 export interface RunDb {
   /** Conexão ativa do usuário e as contas escolhidas, ou null se não houver conexão conectada. */
   connection(userId: string): Promise<{ id: string; expiresAt: string | null; token: string; accounts: AccountToSync[] } | null>;
+  /** Instante da última execução (o fim, quando houver). Base do intervalo mínimo. */
   lastRunStartedAt(userId: string): Promise<string | null>;
-  recordRun(userId: string, run: { startedAt: string; finishedAt: string; ok: boolean; error: string | null }): Promise<void>;
+  recordRun(userId: string, run: { startedAt: string; finishedAt: string; ok: boolean; error: string | null; light?: boolean }): Promise<void>;
   markDisconnected(userId: string, connectionId: string): Promise<void>;
   storeFor(userId: string): SyncStore;
 }
@@ -30,6 +31,20 @@ export function errorCodeOf(error: unknown): SyncErrorCode {
   return 'banco';
 }
 
+/**
+ * Leituras leves rodam a cada poucos minutos: gravar uma linha de sync_runs cada vez (288 por dia) encheria a tabela.
+ * Uma leitura leve atualiza a última linha (quando deu certo, ou repetiu o mesmo erro); só uma falha nova abre linha.
+ * A leitura completa e o botão sempre abrem uma linha.
+ */
+export function planRunRecord(
+  latest: { ok: boolean | null; error: string | null } | null,
+  run: { ok: boolean; error: string | null; light?: boolean },
+): 'insert' | 'update' {
+  if (!run.light || !latest) return 'insert';
+  if (run.ok) return 'update';
+  return latest.ok === false && latest.error === run.error ? 'update' : 'insert';
+}
+
 export async function runMetaSync(opts: {
   userId: string;
   graph: SyncGraph;
@@ -37,6 +52,8 @@ export async function runMetaSync(opts: {
   now?: Date;
   /** Intervalo mínimo desde a última execução (sincronização manual). 0 no agendador. */
   minIntervalSeconds?: number;
+  /** 'leve': só as métricas de hoje das campanhas já ligadas (agendador de poucos minutos). 'completo': tudo. */
+  mode?: 'leve' | 'completo';
 }): Promise<SyncOutcome> {
   const { userId, graph, db } = opts;
   const now = opts.now ?? new Date();
@@ -65,6 +82,7 @@ export async function runMetaSync(opts: {
         account,
         today: saoPauloDate(now),
         now,
+        light: opts.mode === 'leve',
       });
       total.accounts += 1;
       total.campaigns += r.campaigns;
@@ -83,6 +101,6 @@ export async function runMetaSync(opts: {
     }
   }
 
-  await db.recordRun(userId, { startedAt, finishedAt: new Date().toISOString(), ok: failure === null, error: failure });
+  await db.recordRun(userId, { startedAt, finishedAt: new Date().toISOString(), ok: failure === null, error: failure, light: opts.mode === 'leve' });
   return failure ? { ok: false, code: failure } : { ok: true, ...total };
 }
