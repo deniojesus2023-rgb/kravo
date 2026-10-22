@@ -1,5 +1,6 @@
 /** Que avisos um pedido gera. Puro: sem rede nem banco. */
 
+import type { HashedUserData } from '@/lib/capi/hash';
 import type { MappedOrder, OrderStatus, PaymentMethod } from '@/lib/kiwify/orders';
 
 export type OrderEventKind = 'venda_aprovada' | 'pix_gerado' | 'boleto_gerado' | 'reembolso' | 'chargeback';
@@ -15,6 +16,9 @@ export interface OrderEvent {
   label: string | null;
   amountCents: number;
   paymentMethod: PaymentMethod | null;
+  /** Para a API de Conversões (só a venda aprovada usa): data da aprovação e dados do cliente em hash. */
+  approvedAt?: string | null;
+  userData?: HashedUserData;
 }
 
 /** Eventos mais antigos que isto não viram aviso (ex.: leitura retomada depois de dias parada). */
@@ -36,7 +40,7 @@ export function detectOrderEvents(opts: {
   const out: OrderEvent[] = [];
   for (const o of opts.orders) {
     const before = opts.previous.get(o.platformOrderId);
-    const base = { orderId: o.platformOrderId, offerId: o.offerId, label: o.productName, amountCents: o.amountCents, paymentMethod: o.paymentMethod };
+    const base = { orderId: o.platformOrderId, offerId: o.offerId, label: o.productName, amountCents: o.amountCents, paymentMethod: o.paymentMethod, approvedAt: o.approvedAt, userData: o.userData };
     const add = (kind: OrderEventKind, key: string) => out.push({ ...base, kind, dedupeKey: `${key}:${o.platformOrderId}` });
 
     if (o.status === 'aprovado' && before !== 'aprovado' && recent(o.approvedAt, opts.now)) add('venda_aprovada', 'venda');

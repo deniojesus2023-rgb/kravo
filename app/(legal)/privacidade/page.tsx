@@ -38,8 +38,9 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong className="text-fg">Pedidos das plataformas de venda, quando você conecta:</strong> valor, status
-            (aprovado, reembolsado, chargeback), data, parâmetros UTM e identificador do evento. Na versão atual, não
-            guardamos nome, e-mail, CPF ou endereço dos compradores.
+            (aprovado, reembolsado, chargeback), data, parâmetros UTM e identificador do evento. Não guardamos nome,
+            e-mail, telefone, CPF ou endereço dos compradores em texto legível. Se você ligar a API de Conversões de uma oferta,
+            guardamos apenas versões irreversíveis (hash SHA-256) de e-mail, telefone, nome e cidade, o tempo necessário para o envio.
           </li>
           <li>
             <strong className="text-fg">Credenciais de integração:</strong> o token de acesso do Meta e as credenciais
@@ -75,6 +76,11 @@ export default function PrivacyPage() {
           autenticação, região de São Paulo) e a Vercel (hospedagem do aplicativo), e quando a lei exigir. Também
           trocamos dados com a Meta e com as plataformas de venda que você conectar, nos limites da autorização que você
           deu. Não vendemos dados pessoais.
+        </P>
+        <P>
+          Se você ligar a API de Conversões em uma oferta, enviamos à Meta, para o pixel que você indicou, cada venda
+          aprovada com valor, moeda, identificador do pedido e dados do comprador em hash (SHA-256). O CPF nunca é
+          enviado. O envio vem desligado e só começa depois da sua confirmação; você pode desligar a qualquer momento.
         </P>
       </Section>
 
