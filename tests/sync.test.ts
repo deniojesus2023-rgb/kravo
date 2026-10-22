@@ -11,7 +11,8 @@ import {
   parseInsightRow,
   planWindow,
 } from '@/lib/meta/insights';
-import { errorCodeOf, runMetaSync, type RunDb } from '@/lib/meta/run';
+import { errorCodeOf, planRunRecord, runMetaSync, type RunDb } from '@/lib/meta/run';
+import { claimRefresh, shouldRefresh } from '@/lib/meta/refresh';
 import { syncAdAccount, type CampaignRecord, type MetricUpsert, type SyncStore } from '@/lib/meta/sync';
 import type { MetaEnv } from '@/lib/meta/config';
 
@@ -282,5 +283,102 @@ describe('runMetaSync', () => {
     expect(await runMetaSync({ userId: 'u', graph: graphOf([]), db: none, now })).toEqual({ ok: false, code: 'sem_contas' });
     const recent = dbOf({ lastRunStartedAt: async () => '2026-10-19T14:59:00Z' }).db;
     expect(await runMetaSync({ userId: 'u', graph: graphOf([]), db: recent, now, minIntervalSeconds: 120 })).toEqual({ ok: false, code: 'muito_recente' });
+  });
+});
+
+describe('leitura leve (a cada poucos minutos)', () => {
+  const light = (store: SyncStore, g = graphOf([row('10', '2026-10-19', '12')])) =>
+    syncAdAccount({ graph: g, store, token: 't', account, today: '2026-10-19', now, light: true });
+
+  it('janela é só hoje', () => {
+    expect(planWindow('2026-10-19', false, true)).toEqual({ since: '2026-10-19', until: '2026-10-19' });
+    expect(planWindow('2026-10-19', true, true)).toEqual({ since: '2026-10-19', until: '2026-10-19' });
+  });
+
+  it('uma única chamada à Meta (insights de campanha de hoje); não lista nem cria campanhas, conjuntos ou anúncios', async () => {
+    const { store, metrics, campaigns, adsets, ads } = fakeStore(LINKED);
+    const g = graphOf([row('10', '2026-10-19', '12'), row('11', '2026-10-19', '5')]);
+    const r = await light(store, g);
+    expect(g.insights).toHaveBeenCalledTimes(1);
+    expect(g.insights).toHaveBeenCalledWith('t', 'act_1', 'campaign', '2026-10-19', '2026-10-19');
+    expect(g.campaigns).not.toHaveBeenCalled();
+    expect(g.adsets).not.toHaveBeenCalled();
+    expect(g.ads).not.toHaveBeenCalled();
+    expect(r).toMatchObject({ campaigns: 1, linked: 1, unlinked: 0, metricRows: 1, adsets: 0, ads: 0 });
+    expect(campaigns.size).toBe(1); // a campanha 11 (sem oferta) não foi criada
+    expect(adsets.size + ads.size).toBe(0);
+    expect([...metrics.values()][0]).toMatchObject({ level: 'campaign', date: '2026-10-19', spendCents: 1200, offerId: 'o1' });
+  });
+
+  it('sem campanha ligada a uma oferta, nem chama a Meta', async () => {
+    const g = graphOf([row('10', '2026-10-19', '12')]);
+    const r = await light(fakeStore().store, g);
+    expect(g.insights).not.toHaveBeenCalled();
+    expect(r.metricRows).toBe(0);
+  });
+
+  it('repetir a leitura atualiza o gasto de hoje sem duplicar', async () => {
+    const { store, metrics } = fakeStore(LINKED);
+    await light(store, graphOf([row('10', '2026-10-19', '12')]));
+    await light(store, graphOf([row('10', '2026-10-19', '15.5')]));
+    expect(metrics.size).toBe(1);
+    expect([...metrics.values()][0]!.spendCents).toBe(1550);
+  });
+
+  it('runMetaSync em modo leve repassa o modo e avisa o registro', async () => {
+    const recordRun = vi.fn(async () => {});
+    const db: RunDb = {
+      connection: async () => ({ id: 'c', expiresAt: null, token: 't', accounts: [account] }),
+      lastRunStartedAt: async () => null,
+      recordRun,
+      markDisconnected: async () => {},
+      storeFor: () => fakeStore(LINKED).store,
+    };
+    const g = graphOf([row('10', '2026-10-19', '12')]);
+    expect(await runMetaSync({ userId: 'u', graph: g, db, now, mode: 'leve' })).toMatchObject({ ok: true, metricRows: 1 });
+    expect(g.campaigns).not.toHaveBeenCalled();
+    expect(recordRun).toHaveBeenCalledWith('u', expect.objectContaining({ light: true, ok: true }));
+  });
+
+  it('o registro das leituras leves atualiza a última linha; só uma falha nova abre linha', () => {
+    expect(planRunRecord(null, { ok: true, error: null, light: true })).toBe('insert');
+    expect(planRunRecord({ ok: true, error: null }, { ok: true, error: null, light: true })).toBe('update');
+    expect(planRunRecord({ ok: false, error: 'limite_da_meta' }, { ok: true, error: null, light: true })).toBe('update');
+    expect(planRunRecord({ ok: true, error: null }, { ok: false, error: 'meta_erro', light: true })).toBe('insert');
+    expect(planRunRecord({ ok: false, error: 'meta_erro' }, { ok: false, error: 'meta_erro', light: true })).toBe('update');
+    expect(planRunRecord({ ok: false, error: 'meta_erro' }, { ok: false, error: 'banco', light: true })).toBe('insert');
+    // A leitura completa e o botão sempre abrem linha.
+    expect(planRunRecord({ ok: true, error: null }, { ok: true, error: null })).toBe('insert');
+  });
+});
+
+describe('atualização ao abrir o app', () => {
+  const conn = (status: 'conectado' | 'expirando' | 'desconectado' | 'nao_conectado', delayMinutes: number | null, ok = true) => ({
+    status,
+    lastSync: delayMinutes === null ? null : { delayMinutes, ok },
+  });
+
+  it('atualiza quando a última leitura tem 2 minutos ou mais', () => {
+    expect(shouldRefresh(conn('conectado', 1))).toBe(false);
+    expect(shouldRefresh(conn('conectado', 2))).toBe(true);
+    expect(shouldRefresh(conn('expirando', 30))).toBe(true);
+  });
+
+  it('nunca na primeira vez (é manual), sem conexão ou desconectado', () => {
+    expect(shouldRefresh(conn('conectado', null))).toBe(false);
+    expect(shouldRefresh(conn('nao_conectado', 90))).toBe(false);
+    expect(shouldRefresh(conn('desconectado', 90))).toBe(false);
+  });
+
+  it('depois de uma falha espera 15 minutos, para não insistir num erro', () => {
+    expect(shouldRefresh(conn('conectado', 10, false))).toBe(false);
+    expect(shouldRefresh(conn('conectado', 15, false))).toBe(true);
+  });
+
+  it('várias navegações juntas disparam uma leitura só por usuário; outro usuário não é afetado', () => {
+    expect(claimRefresh('u-1', 1_000_000)).toBe(true);
+    expect(claimRefresh('u-1', 1_030_000)).toBe(false);
+    expect(claimRefresh('u-2', 1_030_000)).toBe(true);
+    expect(claimRefresh('u-1', 1_061_000)).toBe(true);
   });
 });

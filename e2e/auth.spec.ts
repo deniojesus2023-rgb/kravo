@@ -66,7 +66,7 @@ test.describe('rotas protegidas', () => {
   });
 
   test('agendadores exigem o segredo; o webhook da Kiwify é público mas não revela nada', async ({ request }) => {
-    for (const path of ['/api/jobs/resumo?slot=noite', '/api/jobs/resumo', '/api/jobs/sync-meta', '/api/jobs/sync-vendas']) {
+    for (const path of ['/api/jobs/resumo?slot=noite', '/api/jobs/resumo', '/api/jobs/sync-meta', '/api/jobs/sync-meta?modo=leve', '/api/jobs/sync-vendas']) {
       expect((await request.get(path, { maxRedirects: 0 })).status(), path).toBe(401);
       expect((await request.get(path, { maxRedirects: 0, headers: { authorization: 'Bearer errado' } })).status(), path).toBe(401);
     }

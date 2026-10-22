@@ -78,3 +78,14 @@ Leitura rápida: `codigo 1` + "Error validating client secret" = chave secreta q
 
 - Lidos junto com as campanhas (`/{act}/adsets`, `/{act}/ads`, `insights` com `level=adset|ad`), só os de campanhas ligadas a uma oferta. Métricas em `daily_metrics` nos níveis `adset` e `ad`, com `video_views_3s` (ação `video_view`). Os totais da oferta continuam usando só o nível `campaign`, para não somar o gasto duas vezes.
 - Ainda **sem tabela na interface** (abas Conjuntos e Anúncios) e sem criativos (`creatives`). Não validado contra a Meta real.
+
+## Atualização quase em tempo real do gasto
+
+O Meta **não avisa** quando o gasto muda (não há webhook de métricas), então a trakfy pergunta com frequência. Os números de conversão do próprio Meta ainda têm atraso de minutos a horas; lucro e ROAS real usam as vendas da Kiwify, que chegam na hora.
+
+- **Leitura leve** (`GET /api/jobs/sync-meta?modo=leve`, Bearer `CRON_SECRET`): responde 202 na hora e, em segundo plano, lê só o dia de hoje no nível campanha das campanhas **já ligadas a uma oferta**: uma chamada ao Meta por conta, sem listar nem criar campanhas, conjuntos ou anúncios. Agendada a cada 5 minutos por `supabase/agendamentos/meta-leve.sql` (pg_cron + pg_net; a Vercel gratuita só roda 1 vez por dia).
+- **Leitura completa:** diária (Vercel, `vercel.json`) e no botão "Sincronizar agora": últimos 7 dias (30 na primeira vez), campanhas, conjuntos e anúncios; corrige a atribuição que o Meta ajusta depois.
+- **Ao abrir o app** (`app/(app)/layout.tsx`): se a última leitura tem 2 minutos ou mais (15 depois de uma falha), dispara a leve em segundo plano, com trava por usuário. A tela se atualiza sozinha em seguida e de 2 em 2 minutos com a aba visível (`LiveRefresh`). Nunca na primeira vez: a primeira leitura é manual.
+- `sync_runs`: a leitura leve atualiza a última linha em vez de abrir uma por execução (`planRunRecord`); só uma falha nova abre linha.
+- Limite de uso do Meta (códigos 4, 17, 32, 613): a leitura falha com `limite_da_meta` e tenta de novo na vez seguinte. O limite sobe com o Acesso Avançado.
+- **Não validado contra a Meta real.**

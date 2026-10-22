@@ -155,6 +155,8 @@ export function dailyBudgetCents(value: string | undefined): number | null {
  * Janela a sincronizar. Na primeira vez, 30 dias. Depois, os últimos 7 dias, porque a Meta reajusta os números
  * de atribuição por alguns dias. `today` é o dia de hoje em America/Sao_Paulo.
  */
-export function planWindow(today: string, firstSync: boolean): { since: string; until: string } {
+export function planWindow(today: string, firstSync: boolean, light = false): { since: string; until: string } {
+  // Leitura leve (a cada poucos minutos): só o dia de hoje. A completa da noite corrige os últimos 7 dias.
+  if (light) return { since: today, until: today };
   return { since: addDays(today, firstSync ? -29 : -6), until: today };
 }

@@ -1,7 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { decryptSecret, parseKey } from '@/lib/crypto/secret';
-import type { RunDb } from './run';
+import { planRunRecord, type RunDb } from './run';
 import type { CampaignRecord, SyncStore } from './sync';
 
 const CHUNK = 500;
@@ -138,15 +138,29 @@ export function supabaseRunDb(admin: SupabaseClient): RunDb {
     async lastRunStartedAt(userId) {
       const { data } = await admin
         .from('sync_runs')
-        .select('started_at')
+        .select('started_at, finished_at')
         .eq('user_id', userId)
         .eq('source', 'Meta Ads')
         .order('started_at', { ascending: false })
         .limit(1);
-      return data?.[0]?.started_at ?? null;
+      // O fim da última execução (leituras leves atualizam a mesma linha), senão o início.
+      return data?.[0]?.finished_at ?? data?.[0]?.started_at ?? null;
     },
 
     async recordRun(userId, run) {
+      const { data: latest } = await admin
+        .from('sync_runs')
+        .select('id, ok, error')
+        .eq('user_id', userId)
+        .eq('source', 'Meta Ads')
+        .order('started_at', { ascending: false })
+        .limit(1);
+      const last = latest?.[0];
+      if (last && planRunRecord({ ok: last.ok, error: last.error }, run) === 'update') {
+        const { error } = await admin.from('sync_runs').update({ finished_at: run.finishedAt, ok: run.ok, error: run.error }).eq('id', last.id).eq('user_id', userId);
+        if (error) throw fail('registrar a sincronização');
+        return;
+      }
       const { error } = await admin.from('sync_runs').insert({
         user_id: userId,
         source: 'Meta Ads',
