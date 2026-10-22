@@ -19,7 +19,9 @@ export const INSIGHT_FIELDS = INSIGHT_FIELDS_BY_LEVEL.campaign;
 
 export const CAMPAIGN_FIELDS = ['id', 'name', 'effective_status', 'daily_budget'] as const;
 export const ADSET_FIELDS = ['id', 'name', 'effective_status', 'campaign_id'] as const;
-export const AD_FIELDS = ['id', 'name', 'effective_status', 'adset_id', 'campaign_id'] as const;
+export const AD_FIELDS = ['id', 'name', 'effective_status', 'adset_id', 'campaign_id', 'creative'] as const;
+/** Criativos da conta (borda `adcreatives`, campos simples). A miniatura e o tipo vêm daqui; o anúncio só aponta o id. */
+export const CREATIVE_FIELDS = ['id', 'object_type', 'video_id', 'thumbnail_url', 'image_url'] as const;
 
 /** Janela de atribuição das ações e valores. Bate com o texto mostrado na interface. */
 export const ATTRIBUTION_WINDOW = '7d_click';
@@ -67,6 +69,43 @@ export interface MetaAd {
   effective_status?: string;
   adset_id?: string;
   campaign_id?: string;
+  /** Só o id: os dados do criativo vêm da borda `adcreatives`. */
+  creative?: { id?: string };
+}
+
+export interface MetaCreative {
+  id: string;
+  object_type?: string;
+  video_id?: string;
+  thumbnail_url?: string;
+  image_url?: string;
+}
+
+export type CreativeFormat = 'video' | 'imagem';
+
+export interface CreativeInfo {
+  format: CreativeFormat | null;
+  thumbnailUrl: string | null;
+  videoId: string | null;
+}
+
+/** Só imagens servidas pela CDN do Meta, em https. Qualquer outra coisa é descartada. */
+const IMAGE_HOSTS = ['.fbcdn.net', '.facebook.com', '.fbsbx.com'];
+export function safeImageUrl(raw: string | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    return u.protocol === 'https:' && IMAGE_HOSTS.some((h) => u.hostname.endsWith(h)) ? u.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Formato e miniatura de um criativo. Carrossel e outros tipos não são detectados: ficam sem formato (nunca adivinhado). */
+export function parseCreative(c: MetaCreative): CreativeInfo {
+  const format: CreativeFormat | null = c.video_id || c.object_type === 'VIDEO' ? 'video' : c.object_type === 'PHOTO' ? 'imagem' : null;
+  // Imagem em tamanho cheio, quando o Meta dá; senão a miniatura.
+  return { format, thumbnailUrl: safeImageUrl(format === 'imagem' ? c.image_url : undefined) ?? safeImageUrl(c.thumbnail_url), videoId: c.video_id ?? null };
 }
 
 export interface ParsedInsight {

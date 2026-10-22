@@ -1,5 +1,6 @@
 /** Venda da Kiwify → pedido da trakfy. Funções puras: sem rede nem banco. */
 
+import { buildUserData, type HashedUserData } from '@/lib/capi/hash';
 import type { KiwifySale } from './client';
 
 export type OrderStatus = 'pendente' | 'aprovado' | 'reembolsado' | 'chargeback' | 'cancelado';
@@ -9,6 +10,8 @@ export interface MappedOrder {
   productId: string | null;
   productName: string | null;
   paymentMethod: PaymentMethod | null;
+  /** Dados do cliente já em hash (SHA-256) para a API de Conversões; vazio se a Kiwify não informou. */
+  userData: HashedUserData;
   /** Quando a Kiwify criou a venda (Pix e boleto gerados ainda não têm aprovação). */
   createdAt: string | null;
   status: OrderStatus;
@@ -95,6 +98,16 @@ export function mapSale(sale: KiwifySale): MapResult {
       productId: text(sale.product?.id),
       productName: text(sale.product?.name),
       paymentMethod: paymentMethodOf(sale.payment_method),
+      userData: buildUserData({
+        id: sale.customer?.id,
+        email: sale.customer?.email,
+        phone: sale.customer?.mobile,
+        name: sale.customer?.name,
+        city: sale.customer?.address?.city,
+        state: sale.customer?.address?.state,
+        zip: sale.customer?.address?.zipcode,
+        country: sale.customer?.country,
+      }),
       createdAt: created,
       amountCents,
       ...mapped,

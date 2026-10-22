@@ -89,3 +89,11 @@ O Meta **não avisa** quando o gasto muda (não há webhook de métricas), entã
 - `sync_runs`: a leitura leve atualiza a última linha em vez de abrir uma por execução (`planRunRecord`); só uma falha nova abre linha.
 - Limite de uso do Meta (códigos 4, 17, 32, 613): a leitura falha com `limite_da_meta` e tenta de novo na vez seguinte. O limite sobe com o Acesso Avançado.
 - **Não validado contra a Meta real.**
+
+## Miniatura e formato dos criativos
+A leitura completa também lê `GET /{conta}/adcreatives` (campos simples: `id, object_type, video_id, thumbnail_url, image_url`, com `thumbnail_width=480&thumbnail_height=300`) e liga cada anúncio ao criativo pelo campo `creative` (só o id). Para vídeos, a duração vem de `GET /?ids=...&fields=length` (lotes de 50). Tudo com `ads_read`.
+- Guardado em `ads.format` (`video` | `imagem`; carrossel e outros tipos **não são detectados**, ficam vazios), `ads.thumbnail_url`, `ads.duration_seconds` (migração `20261022150000`).
+- Só entram links `https` da CDN do Meta (`fbcdn.net`, `facebook.com`, `fbsbx.com`).
+- O link é assinado e **expira**: renova a cada leitura completa; se falhar no navegador, o card mostra um ícone neutro.
+- Falha ao ler criativos ou duração nunca derruba a leitura de métricas e não apaga o que já estava guardado.
+- Testado só com a Graph simulada. Não confirmado com o Meta real: se `thumbnail_width/height` são aceitos nessa borda (se não, a miniatura vem pequena, 64 px).

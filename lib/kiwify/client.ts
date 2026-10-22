@@ -43,6 +43,8 @@ export interface KiwifySale {
   approved_date?: string | null;
   refunded_at?: string | null;
   payment_method?: string;
+  /** Dados do cliente: só passam pela memória para virar hash (API de Conversões); nunca são gravados. */
+  customer?: { id?: string; name?: string; email?: string; mobile?: string; country?: string; address?: { city?: string; state?: string; zipcode?: string } };
   product?: { id?: string; name?: string };
   payment?: { charge_amount?: number; charge_currency?: string; net_amount?: number; fee?: number };
   tracking?: Partial<Record<'utm_source' | 'utm_medium' | 'utm_campaign' | 'utm_content' | 'utm_term', string | null>>;

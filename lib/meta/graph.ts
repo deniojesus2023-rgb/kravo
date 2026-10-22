@@ -2,6 +2,7 @@ import { appSecretProof } from './oauth';
 import {
   AD_FIELDS,
   ADSET_FIELDS,
+  CREATIVE_FIELDS,
   ATTRIBUTION_WINDOW,
   CAMPAIGN_FIELDS,
   INSIGHT_FIELDS_BY_LEVEL,
@@ -9,6 +10,7 @@ import {
   type InsightRow,
   type MetaAd,
   type MetaAdset,
+  type MetaCreative,
   type MetaCampaign,
 } from './insights';
 import type { MetaEnv } from './config';
@@ -213,6 +215,24 @@ export function createGraph(env: MetaEnv, fetcher: FetchLike = fetch as FetchLik
     /** Anúncios da conta. */
     async ads(token: string, accountId: string): Promise<MetaAd[]> {
       return pages<MetaAd>(`/${accountId}/ads`, { fields: AD_FIELDS.join(','), limit: '500' }, token);
+    },
+
+    /** Criativos da conta (tipo, vídeo e miniatura). A miniatura pedida é maior que o padrão do Meta (64 px). */
+    async adCreatives(token: string, accountId: string): Promise<MetaCreative[]> {
+      return pages<MetaCreative>(`/${accountId}/adcreatives`, { fields: CREATIVE_FIELDS.join(','), thumbnail_width: '480', thumbnail_height: '300', limit: '200' }, token);
+    },
+
+    /** Duração (segundos) de vídeos, até 50 por chamada. Ids que o Meta não devolve ficam de fora. */
+    async videoLengths(token: string, videoIds: string[]): Promise<Map<string, number>> {
+      const out = new Map<string, number>();
+      for (let i = 0; i < videoIds.length; i += 50) {
+        const r = await call<Record<string, { length?: number } | undefined>>('/', { ids: videoIds.slice(i, i + 50).join(','), fields: 'length' }, token);
+        for (const id of videoIds.slice(i, i + 50)) {
+          const len = r[id]?.length;
+          if (typeof len === 'number' && len > 0) out.set(id, Math.round(len));
+        }
+      }
+      return out;
     },
 
     /** Métricas por entidade e por dia (campanha, conjunto ou anúncio), de `since` a `until` (inclusive), com a janela de atribuição fixa. */

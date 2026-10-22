@@ -17,4 +17,11 @@ select cron.schedule('trakfy-meta-leve', '*/5 * * * *', $$
     timeout_milliseconds := 30000);
 $$);
 
--- Para remover: select cron.unschedule('trakfy-meta-leve');
+-- Reenvio à API de Conversões do que ficou pendente (só age em ofertas com o envio ligado).
+select cron.schedule('trakfy-capi-fila', '*/5 * * * *', $$
+  select net.http_get(url := '[ASSIM: https://seu-dominio]/api/jobs/capi-fila',
+    headers := jsonb_build_object('Authorization', 'Bearer [ASSIM: CRON_SECRET]'),
+    timeout_milliseconds := 30000);
+$$);
+
+-- Para remover: select cron.unschedule('trakfy-meta-leve'); select cron.unschedule('trakfy-capi-fila');

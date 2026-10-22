@@ -119,6 +119,22 @@ export function parseWebhookPayload(body: unknown): ParsedWebhook {
   const utm = (key: string) => str(dig(tracking, [key]))?.slice(0, 300);
   const method = METHOD[(str(first(body, ['payment_method'])) ?? '').toLowerCase()];
 
+  // Dados do cliente: só para virar hash na API de Conversões (nunca gravados nem mostrados). Todos opcionais.
+  const c = first(body, ['Customer'], ['customer']);
+  const fullName = str(first(c, ['full_name'], ['name'])) ?? ([str(dig(c, ['first_name'])), str(dig(c, ['last_name']))].filter(Boolean).join(' ') || undefined);
+  const customer = {
+    id: str(first(c, ['id'], ['customer_id'])),
+    name: fullName,
+    email: str(dig(c, ['email'])),
+    mobile: str(first(c, ['mobile'], ['phone'], ['phone_number'])),
+    country: str(dig(c, ['country'])),
+    address: {
+      city: str(first(c, ['city'], ['address', 'city'])),
+      state: str(first(c, ['state'], ['address', 'state'])),
+      zipcode: str(first(c, ['zipcode'], ['zip_code'], ['address', 'zipcode'])),
+    },
+  };
+
   const sale: KiwifySale = {
     id,
     status,
@@ -127,6 +143,7 @@ export function parseWebhookPayload(body: unknown): ParsedWebhook {
     updated_at: isoWithTz(first(body, ['updated_at'])),
     approved_date: isoWithTz(first(body, ['approved_date'])) ?? null,
     refunded_at: isoWithTz(first(body, ['refunded_at'])) ?? null,
+    customer,
     product: { id: productId, name: productName },
     payment: { charge_amount: cents, charge_currency: currency },
     tracking: {
