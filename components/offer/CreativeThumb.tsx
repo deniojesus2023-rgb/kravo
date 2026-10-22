@@ -1,16 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /** Miniatura do criativo. O link do Meta expira: se falhar, mostra um ícone neutro em vez de imagem quebrada. */
 export function CreativeThumb({ url, isVideo, label, rank }: { url: string | null; isVideo: boolean; label: string; rank: number }) {
   const [failed, setFailed] = useState(false);
+  const ref = useRef<HTMLImageElement>(null);
+  // A imagem pode falhar antes de o React assumir a página (o onError não dispara): confere o estado ao montar.
+  useEffect(() => {
+    const img = ref.current;
+    if (img?.complete && img.naturalWidth === 0) setFailed(true);
+  }, [url]);
   const show = url && !failed;
   return (
     <div className="relative flex aspect-[16/10] items-center justify-center overflow-hidden rounded-md bg-surface-hover text-fg-subtle">
       {show ? (
         // eslint-disable-next-line @next/next/no-img-element -- link assinado e temporário da CDN do Meta
-        <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} className="h-full w-full object-cover" />
+        <img ref={ref} src={url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} className="h-full w-full object-cover" />
       ) : (
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
           {isVideo ? (
