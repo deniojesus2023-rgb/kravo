@@ -9,7 +9,7 @@ import { expect, test } from '@playwright/test';
  */
 
 test.describe('rotas protegidas', () => {
-  for (const path of ['/', '/ofertas/ansiedade-zero', '/integracoes', '/configuracoes', '/ofertas/nova']) {
+  for (const path of ['/', '/ofertas/ansiedade-zero', '/integracoes', '/configuracoes', '/ofertas/nova', '/alfred', '/alfred/biblioteca', '/alfred/configuracoes']) {
     test(`${path} sem sessão vai para o login`, async ({ page }) => {
       await page.goto(path);
       await expect(page).toHaveURL(new RegExp(`/login\\?next=${encodeURIComponent(path).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));

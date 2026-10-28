@@ -18,7 +18,7 @@ export default defineConfig({
   testDir: './e2e',
   projects: [
     // App com dados de exemplo, sem Supabase.
-    { name: 'exemplo', testMatch: 'app.spec.ts', use: { baseURL: 'http://localhost:3100', ...chromium } },
+    { name: 'exemplo', testMatch: ['app.spec.ts', 'alfred.spec.ts'], use: { baseURL: 'http://localhost:3100', ...chromium } },
     // App com Supabase configurado: proteção de rotas e telas de login.
     ...(authConfigured
       ? [
