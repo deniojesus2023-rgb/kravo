@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CONTEXT_CHARS, fitContext, sendMessage, titleFrom, type ChatStore, type Quota } from '@/lib/alfred/chat';
-import { chatConfig, chatStatus, DEFAULT_DAILY_LIMIT, dailyLimit, embeddingConfig, MAX_DAILY_LIMIT } from '@/lib/alfred/config';
+import { chatConfig, chatStatus, DEFAULT_DAILY_LIMIT, dailyLimit, describeInvalidModelId, embeddingConfig, embeddingStatus, embeddingUnavailableText, MAX_DAILY_LIMIT, unavailableText } from '@/lib/alfred/config';
 import { ERROR_TEXT, MAX_MESSAGE_CHARS } from '@/lib/alfred/errors';
 import { ModelError, classifyProviderError, createOpenAIModel, isValidModelId, type AlfredModel, type ChatTurn } from '@/lib/alfred/model';
 import { ALFRED_SYSTEM_PROMPT } from '@/lib/alfred/persona';
@@ -208,7 +208,7 @@ describe('nome do modelo e diagnóstico de erro', () => {
   });
   it('ALFRED_MODEL mal escrito desativa o chat com explicação, sem chamar a OpenAI', () => {
     const env = { OPENAI_API_KEY: KEY, ALFRED_MODEL: 'Alfred 1.0' };
-    expect(chatStatus({ supabase: true, signedIn: true, env })).toEqual({ available: false, reason: 'modelo_mal_escrito' });
+    expect(chatStatus({ supabase: true, signedIn: true, env })).toMatchObject({ available: false, reason: 'modelo_mal_escrito' });
     expect(chatConfig(env)).toBeNull();
     expect(embeddingConfig({ OPENAI_API_KEY: KEY, ALFRED_EMBEDDING_MODEL: 'Alfred 1.0' })).toBeNull();
   });
@@ -230,5 +230,38 @@ describe('nome do modelo e diagnóstico de erro', () => {
     const bad: AlfredModel = { complete: async () => Promise.reject(classifyProviderError(400, { code: 'unsupported_parameter', param: 'max_tokens' })) };
     const r = await sendMessage({ store: m.store, quota: m.quota, model: bad, dailyLimit: 50, now: NOW }, { conversationId: null, text: 'oi' });
     expect(r).toEqual({ ok: false, error: 'requisicao_recusada', detail: 'unsupported_parameter / max_tokens' });
+  });
+});
+
+describe('diagnóstico do nome do modelo (sem expor o valor)', () => {
+  it('aponta o caractere inválido pelo código e pela posição', () => {
+    expect(describeInvalidModelId('GPT 6 Astra')).toContain('o caractere 4 é inválido: U+0020 (espaço)');
+    expect(describeInvalidModelId('gpt\u20136\u2013astra')).toContain('U+2013 (traço médio (en dash) no lugar do hífen)');
+    expect(describeInvalidModelId('gpt-6-astra\u00a0')).toContain('U+00A0 (espaço não separável)');
+    expect(describeInvalidModelId('gpt-6-astra\u200b')).toContain('U+200B (espaço invisível)');
+    expect(describeInvalidModelId('"gpt-6-astra"')).toContain('U+0022 (aspas)');
+    expect(describeInvalidModelId('gpt-6-astrá')).toContain('fora do padrão');
+    expect(describeInvalidModelId('-gpt')).toContain('o caractere 1 é inválido');
+    expect(describeInvalidModelId('a'.repeat(101))).toContain('máximo é 100');
+  });
+  it('nunca devolve o valor lido, mesmo que seja um segredo colado na variável errada', () => {
+    const secret = `${KEY} com espaço`;
+    expect(describeInvalidModelId(secret)).not.toContain(KEY);
+    const status = chatStatus({ supabase: true, signedIn: true, env: { OPENAI_API_KEY: KEY, ALFRED_MODEL: secret } });
+    expect(JSON.stringify(status)).not.toContain(KEY);
+    if (!status.available) expect(unavailableText(status)).not.toContain(KEY);
+  });
+  it('o aviso do chat inclui o diagnóstico', () => {
+    const s = chatStatus({ supabase: true, signedIn: true, env: { OPENAI_API_KEY: KEY, ALFRED_MODEL: 'GPT 6 Astra' } });
+    expect(s.available).toBe(false);
+    if (!s.available) expect(unavailableText(s)).toMatch(/Diagnóstico: o valor tem 11 caracteres e o caractere 4 é inválido: U\+0020/);
+  });
+  it('embedding: motivo e diagnóstico', () => {
+    expect(embeddingStatus({})).toEqual({ available: false, reason: 'sem_chave' });
+    expect(embeddingStatus({ OPENAI_API_KEY: KEY })).toEqual({ available: false, reason: 'sem_modelo' });
+    const bad = embeddingStatus({ OPENAI_API_KEY: KEY, ALFRED_EMBEDDING_MODEL: 'text embedding' });
+    expect(bad).toMatchObject({ available: false, reason: 'modelo_mal_escrito' });
+    if (!bad.available) expect(embeddingUnavailableText(bad)).toContain('U+0020');
+    expect(embeddingStatus({ OPENAI_API_KEY: KEY, ALFRED_EMBEDDING_MODEL: 'text-embedding-3-small' })).toEqual({ available: true, model: 'text-embedding-3-small' });
   });
 });

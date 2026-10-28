@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { UNAVAILABLE_TEXT, type chatStatus } from '@/lib/alfred/config';
+import { embeddingUnavailableText, unavailableText, type chatStatus, type EmbeddingStatus } from '@/lib/alfred/config';
 
 const SECTIONS = [
   { id: 'perfil', label: 'Perfil' },
@@ -46,7 +46,7 @@ function Disabled({ children, text = SOON }: { children: ReactNode; text?: strin
  * Configurações. Controles sem comportamento real ficam desabilitados e explicados; só o que existe de fato
  * (a conta, o status dos recursos e os links de privacidade) é funcional.
  */
-export function SettingsPanel({ email, chat, library }: { email: string | null; chat: ReturnType<typeof chatStatus>; library: { embeddingModel: string | null; isAdmin: boolean } }) {
+export function SettingsPanel({ email, chat, library }: { email: string | null; chat: ReturnType<typeof chatStatus>; library: { embedding: EmbeddingStatus; isAdmin: boolean } }) {
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
       <nav aria-label="Seções das configurações" className="flex gap-1 overflow-x-auto lg:sticky lg:top-6 lg:w-[220px] lg:flex-none lg:flex-col">
@@ -91,21 +91,21 @@ export function SettingsPanel({ email, chat, library }: { email: string | null; 
               <dd className="num m-0">{chat.dailyLimit} mensagens por pessoa</dd>
             </dl>
           ) : (
-            <p className="m-0 text-[14px] text-fg-muted">{UNAVAILABLE_TEXT[chat.reason]}</p>
+            <p className="m-0 text-[14px] text-fg-muted">{unavailableText(chat)}</p>
           )}
           <p className="m-0 text-[12.5px] text-fg-subtle">O modelo e o limite são definidos no ambiente do servidor (ALFRED_MODEL e ALFRED_DAILY_LIMIT); a escolha por conta ainda não existe.</p>
         </Section>
 
         <Section id="biblioteca" title="Biblioteca">
-          {library.embeddingModel ? (
+          {library.embedding.available ? (
             <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-[14px]">
               <dt className="text-fg-subtle">Modelo de embedding</dt>
-              <dd className="num m-0">{library.embeddingModel}</dd>
+              <dd className="num m-0">{library.embedding.model}</dd>
               <dt className="text-fg-subtle">Seu acesso</dt>
               <dd className="m-0">{library.isAdmin ? 'Administrador: pode enviar e excluir documentos' : 'Consulta: usa a memória do Alfred, sem enviar documentos'}</dd>
             </dl>
           ) : (
-            <p className="m-0 text-[14px] text-fg-muted">A base de conhecimento está desativada: falta definir o modelo de embedding no ambiente (ALFRED_EMBEDDING_MODEL).</p>
+            <p className="m-0 text-[14px] text-fg-muted">{embeddingUnavailableText(library.embedding)}</p>
           )}
           <Link href="/alfred/biblioteca" className="w-fit text-[13.5px] text-brand underline underline-offset-2 hover:text-brand-hover">Abrir a Biblioteca</Link>
         </Section>
