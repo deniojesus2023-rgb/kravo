@@ -233,6 +233,20 @@ describe('nome do modelo e diagnóstico de erro', () => {
   });
 });
 
+describe('conta sem crédito', () => {
+  it.each([
+    [429, { code: 'insufficient_quota', type: 'insufficient_quota' }],
+    [429, { code: 'credit_balance_exhausted', type: 'insufficient_quota' }],
+    [400, { code: 'credit_balance_exhausted' }],
+    [429, { code: null, type: 'insufficient_quota' }],
+  ])('HTTP %s %j vira sem_credito', (status, error) => {
+    expect(classifyProviderError(status, error).kind).toBe('sem_credito');
+  });
+  it('limite de requisições comum continua sendo limite do provedor', () => {
+    expect(classifyProviderError(429, { code: 'rate_limit_exceeded', type: 'requests' }).kind).toBe('limite_do_provedor');
+  });
+});
+
 describe('diagnóstico do nome do modelo (sem expor o valor)', () => {
   it('aponta o caractere inválido pelo código e pela posição', () => {
     expect(describeInvalidModelId('GPT 6 Astra')).toContain('o caractere 4 é inválido: U+0020 (espaço)');

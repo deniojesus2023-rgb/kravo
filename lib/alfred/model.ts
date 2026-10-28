@@ -39,9 +39,11 @@ export function classifyProviderError(status: number, error: { code?: unknown; p
   const code = part(error?.code);
   const detail = [code, part(error?.param), part(error?.type)].filter(Boolean).join(' / ') || null;
   const message = typeof error?.message === 'string' ? error.message : '';
+  const type = part(error?.type);
   const kind = ((): ModelErrorKind => {
     if (status === 401 || status === 403) return 'chave_invalida';
-    if (code === 'insufficient_quota') return 'sem_credito';
+    // Sem saldo na conta da API: a OpenAI manda o código ou o tipo, conforme a versão da resposta.
+    if (code === 'insufficient_quota' || code === 'credit_balance_exhausted' || type === 'insufficient_quota') return 'sem_credito';
     if (status === 429) return 'limite_do_provedor';
     if (status === 404 || code === 'model_not_found') return 'modelo_invalido';
     if (status >= 500) return 'indisponivel';
