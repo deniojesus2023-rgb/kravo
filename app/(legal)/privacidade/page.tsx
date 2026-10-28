@@ -32,6 +32,10 @@ export default function PrivacyPage() {
             link de checkout.
           </li>
           <li>
+            <strong className="text-fg">Conversas com o Alfred, se você usar:</strong> o texto das suas mensagens e das
+            respostas, guardado na sua conta. Só você as vê, e você pode excluir cada conversa.
+          </li>
+          <li>
             <strong className="text-fg">Dados do Meta Ads, quando você conecta sua conta:</strong> contas de anúncios que
             você escolhe, campanhas, conjuntos e anúncios, e métricas como gasto, impressões, cliques e compras
             reportadas. Lemos esses dados com a permissão <em>ads_read</em>. A trakfy não cria, edita nem pausa anúncios.
@@ -76,6 +80,10 @@ export default function PrivacyPage() {
           autenticação, região de São Paulo) e a Vercel (hospedagem do aplicativo), e quando a lei exigir. Também
           trocamos dados com a Meta e com as plataformas de venda que você conectar, nos limites da autorização que você
           deu. Não vendemos dados pessoais.
+        </P>
+        <P>
+          Se você usar o Alfred, o texto da conversa é enviado à OpenAI (provedor de IA) para gerar cada resposta, no
+          limite do que você escreve. Não enviamos CPF nem dados de compradores. Não usamos o conteúdo para outro fim.
         </P>
         <P>
           Se você ligar a API de Conversões em uma oferta, enviamos à Meta, para o pixel que você indicou, cada venda

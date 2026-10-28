@@ -1,0 +1,36 @@
+/*
+ * Tema do Alfred. Vale só dentro de .alfred: as telas da trakfy não mudam.
+ * Redefine os mesmos tokens de app/globals.css, então as classes utilitárias (bg-canvas, text-fg-muted…)
+ * já saem na paleta do Alfred. `brand` é o dourado; `profit`, `warn` e `loss` são sucesso, aviso e erro.
+ */
+.alfred {
+  --color-canvas: #10141b;
+  --color-surface: #1c222d;
+  --color-surface-sunken: #0c1016; /* sidebar */
+  --color-surface-raised: #242b36;
+  --color-surface-hover: #242b36;
+  --color-line: #303744;
+  --color-line-strong: #3b4452;
+  --color-line-faint: #232a35;
+  --color-brand: #e5c079;
+  --color-brand-hover: #f2d49a;
+  --color-fg: #f7f8fa;
+  --color-fg-muted: #aeb5c0;
+  --color-fg-subtle: #8a92a0;
+  --color-profit: #269968;
+  --color-warn: #d99a36;
+  --color-loss: #d65c5c;
+  --color-nav-hover: #1c222d;
+  --color-nav-active: #242b36;
+  --color-state-dashed: #4a525b;
+
+  background: var(--color-canvas);
+  color: var(--color-fg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alfred * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
