@@ -66,17 +66,17 @@ export function ChatWorkspace({ conversationId: initialId = null, initialMessage
         {empty ? (
           <ChatEmptyState onPick={(prompt) => (setDraft(prompt), requestAnimationFrame(() => document.getElementById('mensagem')?.focus()))} />
         ) : (
-          <div role="log" aria-live="polite" aria-label="Conversa" className="mx-auto flex w-full max-w-[760px] flex-col gap-7 px-4 py-8 sm:px-6">
+          <div role="log" aria-live="polite" aria-label="Conversa" className="mx-auto flex w-full max-w-[720px] flex-col gap-8 px-4 py-8 sm:px-6">
             {messages.map((m) => <ChatMessage key={m.id} message={m} />)}
             {pending && <ThinkingIndicator />}
             <div ref={endRef} />
           </div>
         )}
       </div>
-      <div className="flex-none border-t border-line-faint bg-canvas px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
-        <div className="mx-auto flex w-full max-w-[760px] flex-col gap-3">
+      <div className="flex-none bg-canvas px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
+        <div className="mx-auto flex w-full max-w-[720px] flex-col gap-3">
           {error && (
-            <p role="alert" className="m-0 flex items-start gap-2.5 rounded-xl border border-loss/40 px-3.5 py-2.5 text-[13.5px] leading-relaxed text-fg-muted">
+            <p role="alert" className="m-0 flex items-start gap-2.5 rounded-lg border border-loss/40 px-3.5 py-2.5 text-[13.5px] leading-relaxed text-fg-muted">
               <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 flex-none text-loss" />
               <span>
                 <strong className="font-medium text-fg">Não foi possível enviar.</strong> {error}

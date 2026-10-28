@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
-import { createUploadAction } from '@/app/alfred/biblioteca/actions';
+import { createUploadAction } from '@/app/(app)/alfred/biblioteca/actions';
 import { INGEST_ERROR_TEXT } from '@/lib/alfred/errors';
 import { DocumentUpload } from './DocumentUpload';
 import { runProcessing } from './processing';

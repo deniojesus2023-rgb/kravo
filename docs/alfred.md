@@ -2,20 +2,20 @@
 
 Módulo de consultoria estratégica dentro do mesmo app, em `/alfred`.
 
-**Estado:** o **chat** está implementado (modelo da OpenAI, conversas salvas, histórico, renomear, excluir, limite diário), mas **ainda não rodou contra a OpenAI real**: foi testado só com o provedor simulado. A **base de conhecimento de PDFs** também está implementada (envio, leitura única, trechos com embedding, busca no chat com Fontes), igualmente **sem ter rodado contra a OpenAI e o Supabase reais**. Conhecimento (extração de conceitos) e Projetos continuam só como interface, com estado vazio. Nenhum dado fictício é exibido.
+**Estado:** o **chat** está implementado (modelo da OpenAI, conversas salvas, histórico, renomear, excluir, limite diário) e **foi confirmado funcionando em produção** pelo usuário. A **base de conhecimento de PDFs** também está implementada (envio, leitura única, trechos com embedding, busca no chat com Fontes), e a leitura de PDFs também foi confirmada em produção; **a qualidade da busca ainda não foi avaliada** com perguntas reais. Conhecimento (extração de conceitos) e Projetos continuam só como interface, com estado vazio. Nenhum dado fictício é exibido.
 
 ## Decisões
-- **Rota separada** (`app/alfred/`), com layout próprio. As telas da trakfy não foram alteradas; um teste e2e confere que a paleta e a marca da trakfy continuam as mesmas.
-- **Tema escopado** em `app/alfred/alfred.css`: a classe `.alfred` redefine os mesmos tokens de `app/globals.css` com a paleta do Alfred (dourado `#E5C079` como `brand`; `profit`/`warn`/`loss` = sucesso/aviso/erro). Por isso as classes usuais (`bg-canvas`, `text-fg-muted`…) já saem na paleta certa dentro de `/alfred`.
-- **Login**: `/alfred` usa a mesma conta e a proteção de rotas da trakfy (sem sessão vai para `/login`).
-- **Dependência nova**: `lucide-react` (ícones, pedido na especificação). Markdown **sem biblioteca**: `lib/alfred/markdown.ts` é um parser próprio (títulos, listas, tabelas, citações, código, negrito/itálico, links http/https); o renderizador cria elementos React, nunca HTML bruto.
+- **Dentro da trakfy:** o Alfred é uma seção do app, não um produto separado. Fica no menu lateral da trakfy (item "Alfred") e as rotas `/alfred/*` moram em `app/(app)/alfred/`, sob o mesmo layout (`AppShell`, sidebar, login, proteção de rotas). As seções (Chat, Biblioteca, Conhecimento, Projetos, Configurações) são **abas** no topo (`AlfredChrome`), como as abas de uma oferta. No chat, o histórico fica numa coluna à esquerda (≥1024px) ou na janela "Conversas" no celular. O `AppShell` dá altura total às rotas `/alfred` (chat com campo fixo embaixo e rolagem própria).
+- **Mesma identidade visual da trakfy:** usa os tokens de `app/globals.css`, os raios (8px) e os componentes da trakfy; não há tema próprio. O verde-limão aparece só no botão principal, na aba ativa, no foco e na marca; estados com texto, sem gradientes. Os testes e2e de paleta, acessibilidade e rolagem horizontal da trakfy (`e2e/app.spec.ts`) também cobrem as telas do Alfred.
+- **Interface mais enxuta:** chat centrado em coluna de leitura (720px), sugestões em lista com divisórias finas em vez de cartões, campo de mensagem único, respostas sem moldura, títulos de seção analítica (DIAGNÓSTICO…) em rótulos discretos.
+- **Dependência:** `lucide-react` (ícones). Markdown **sem biblioteca**: `lib/alfred/markdown.ts` é um parser próprio (títulos, listas, tabelas, citações, código, negrito/itálico, links http/https); o renderizador cria elementos React, nunca HTML bruto.
 
 ## Estrutura
 - Rotas: `/alfred` (chat), `/alfred/c/[id]`, `/alfred/biblioteca[/id]`, `/alfred/conhecimento[/id]`, `/alfred/projetos[/id]`, `/alfred/configuracoes`.
 - `lib/alfred/`: `types.ts`, `data.ts` (camada de dados, hoje vazia), `history.ts`, `markdown.ts`, `nav.ts`.
-- `components/alfred/`: AlfredShell, AppSidebar, AppHeader, ConversationList, ChatWorkspace, ChatComposer, ChatMessage, ChatEmptyState, Markdown, CopyMessage, DocumentUpload, DocumentCard, DocumentDetail, DocumentProcessingStatus, KnowledgeSearch, KnowledgeCard, ConceptDetail, ProjectCard, ProjectOverview, ProjectTabs, SettingsPanel, `states.tsx` (EmptyState, LoadingState, ErrorState, ConfirmDialog, PendingNote, PageHeader, GoldButton), AlfredMark.
+- `components/alfred/`: AlfredChrome (abas + histórico), ConversationList, ChatWorkspace, ChatComposer, ChatMessage, ChatEmptyState, Markdown, CopyMessage, DocumentUpload, DocumentCard, DocumentDetail, DocumentProcessingStatus, KnowledgeSearch, KnowledgeCard, ConceptDetail, ProjectCard, ProjectOverview, ProjectTabs, SettingsPanel, `states.tsx` (EmptyState, LoadingState, ErrorState, ConfirmDialog, PendingNote, PageHeader, GoldButton), AlfredMark.
 
-## Chat (implementado, não validado com a OpenAI real)
+## Chat (implementado e confirmado em produção)
 - **Variáveis de ambiente (Vercel):** `OPENAI_API_KEY` (segredo, só no servidor), `ALFRED_MODEL` (nome do modelo; sem ele o chat fica desativado) e, opcional, `ALFRED_DAILY_LIMIT` (padrão 50 mensagens por pessoa por dia, teto 1000).
 - **Migração:** `supabase/migrations/20261028120000_alfred_conversas.sql` (`alfred_conversations`, `alfred_messages`, `alfred_usage` e as funções `alfred_consume`/`alfred_refund`). Rodar no SQL Editor **antes** do deploy.
 - **Fluxo (`lib/alfred/chat.ts`):** valida (1 a 8.000 caracteres) → confere a conversa → conta a mensagem do dia → chama o modelo com o prompt do Alfred + até 30 mensagens/30.000 caracteres de contexto → só então grava a pergunta e a resposta. Se o modelo falha, nada é gravado, a cota volta e o texto volta ao campo.
@@ -25,7 +25,7 @@ Módulo de consultoria estratégica dentro do mesmo app, em `/alfred`.
 - **Privacidade:** o texto da conversa é enviado à OpenAI; a política de privacidade foi atualizada. Dados de compradores e CPF da trakfy não entram.
 - Sem streaming: a resposta aparece inteira (indicador "analisando" enquanto isso). `maxDuration` do segmento é 60 s.
 
-## Base de conhecimento (PDFs): implementada, não validada com serviços reais
+## Base de conhecimento (PDFs): implementada; leitura confirmada, qualidade da busca a avaliar
 **Ideia:** cada PDF é lido **uma vez**; o texto vira trechos (~1.200 caracteres, por página, com sobreposição) guardados com um *embedding* (vetor de 1536 números). A cada pergunta, o chat busca os trechos mais relevantes de **todos** os documentos e os entrega ao modelo como material de consulta. O Alfred não "lembra" de tudo de cabeça: ele consulta a base. Cada PDF novo aumenta a base sem reler os antigos.
 - **Compartilhada:** todos os usuários logados consultam a mesma base (pelo Alfred). **Só administradores** (`ALFRED_ADMIN_EMAILS`) enviam, reprocessam e excluem. Sem essa variável, ninguém envia. O texto dos trechos **não é legível pelo navegador** (sem permissão na tabela); a busca roda no servidor e devolve só os poucos trechos de cada pergunta.
 - **Variáveis (Vercel):** `OPENAI_API_KEY`, `ALFRED_EMBEDDING_MODEL` (nome do modelo de embedding; precisa aceitar `dimensions: 1536`, que é o tamanho fixo da coluna), `ALFRED_ADMIN_EMAILS` (e-mails separados por vírgula), além do `SUPABASE_SERVICE_ROLE_KEY` que já existe.

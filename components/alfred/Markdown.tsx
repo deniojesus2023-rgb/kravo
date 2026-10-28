@@ -15,7 +15,7 @@ function renderInline(nodes: Inline[]): ReactNode[] {
       case 'code':
         return <code key={i} className="num rounded bg-surface-raised px-1.5 py-0.5 text-[0.9em]">{n.text}</code>;
       case 'link':
-        return <a key={i} href={n.href} target="_blank" rel="noopener noreferrer nofollow" className="text-brand underline underline-offset-2 hover:text-brand-hover">{renderInline(n.children)}</a>;
+        return <a key={i} href={n.href} target="_blank" rel="noopener noreferrer nofollow" className="text-fg underline underline-offset-2 hover:text-fg-muted">{renderInline(n.children)}</a>;
     }
   });
 }
@@ -27,7 +27,7 @@ function renderBlock(b: Block, i: number): ReactNode {
       // Seções analíticas (DIAGNÓSTICO, ANÁLISE…) viram rótulos de seção, não títulos grandes.
       if (isAnalysisHeading(text)) {
         return (
-          <h3 key={i} className="mt-6 mb-0 border-b border-line pb-2 text-[12px] font-semibold tracking-[0.16em] text-brand uppercase first:mt-0">
+          <h3 key={i} className="mt-6 mb-0 border-b border-line-faint pb-2 text-[11.5px] font-medium tracking-[0.14em] text-fg-subtle uppercase first:mt-0">
             {renderInline(b.children)}
           </h3>
         );
@@ -50,7 +50,7 @@ function renderBlock(b: Block, i: number): ReactNode {
       );
     }
     case 'quote':
-      return <blockquote key={i} className="m-0 flex flex-col gap-2 border-l-2 border-brand/60 pl-4 text-fg-muted">{b.children.map(renderBlock)}</blockquote>;
+      return <blockquote key={i} className="m-0 flex flex-col gap-2 border-l-2 border-line-strong pl-4 text-fg-muted">{b.children.map(renderBlock)}</blockquote>;
     case 'code':
       return (
         <figure key={i} className="m-0 overflow-hidden rounded-lg border border-line bg-surface-sunken">

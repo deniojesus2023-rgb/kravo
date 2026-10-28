@@ -39,6 +39,11 @@ const NAV = [
     icon: <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" />,
   },
   {
+    href: '/alfred',
+    label: 'Alfred',
+    icon: <path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" />,
+  },
+  {
     href: '/integracoes',
     label: 'Integrações',
     icon: <path d="M9 3v5M15 3v5M7 8h10v3a5 5 0 0 1-10 0V8zM12 16v5" />,

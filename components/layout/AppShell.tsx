@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { Logo } from '@/components/ui/Logo';
+import { cn } from '@/lib/cn';
 import { SidebarContent, type SidebarData } from './SidebarContent';
 
 /**
@@ -13,6 +14,7 @@ import { SidebarContent, type SidebarData } from './SidebarContent';
 export function AppShell({ sidebar, children }: { sidebar: SidebarData; children: ReactNode }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const pathname = usePathname();
+  const fullHeight = pathname === '/alfred' || pathname.startsWith('/alfred/');
 
   const close = useCallback(() => dialogRef.current?.close(), []);
 
@@ -75,8 +77,9 @@ export function AppShell({ sidebar, children }: { sidebar: SidebarData; children
         </div>
       </dialog>
 
-      <main id="conteudo" tabIndex={-1} className="min-w-0 flex-1 px-4 pt-6 pb-10 outline-none sm:px-6 lg:px-9 lg:pt-7">
-        <div className="flex flex-col gap-6">{children}</div>
+      {/* O Alfred ocupa a altura toda (chat com campo fixo embaixo e rolagem própria); as demais telas rolam a página. */}
+      <main id="conteudo" tabIndex={-1} className={cn('min-w-0 flex-1 outline-none', fullHeight ? 'h-[calc(100dvh-3.5rem)] overflow-hidden lg:h-dvh' : 'px-4 pt-6 pb-10 sm:px-6 lg:px-9 lg:pt-7')}>
+        <div className={fullHeight ? 'flex h-full min-h-0 flex-col' : 'flex flex-col gap-6'}>{children}</div>
       </main>
     </div>
   );

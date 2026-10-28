@@ -3,7 +3,7 @@ import type { AlfredDocument, DocumentStatus } from '@/lib/alfred/types';
 
 export const STATUS_META: Record<DocumentStatus, { label: string; icon: LucideIcon; tone: string }> = {
   aguardando: { label: 'Aguardando', icon: Clock, tone: 'text-fg-muted' },
-  processando: { label: 'Processando', icon: LoaderCircle, tone: 'text-brand' },
+  processando: { label: 'Processando', icon: LoaderCircle, tone: 'text-fg' },
   concluido: { label: 'Concluído', icon: CheckCircle2, tone: 'text-profit' },
   parcial: { label: 'Parcial', icon: CircleDashed, tone: 'text-warn' },
   erro: { label: 'Erro', icon: AlertCircle, tone: 'text-loss' },
@@ -26,7 +26,7 @@ export function DocumentProcessingStatus({ doc }: { doc: Pick<AlfredDocument, 's
       {(doc.status === 'processando' || doc.status === 'parcial') && pages > 0 && (
         <>
           <div role="progressbar" aria-label="Páginas processadas" aria-valuemin={0} aria-valuemax={pages} aria-valuenow={read} className="h-1.5 w-full overflow-hidden rounded-full bg-surface-raised">
-            <div className="h-full rounded-full bg-brand" style={{ width: `${done}%` }} />
+            <div className="h-full rounded-full bg-fg-muted" style={{ width: `${done}%` }} />
           </div>
           <span className="num text-[11.5px] text-fg-subtle">
             {read} de {pages} páginas{doc.failedPages > 0 ? ` · ${doc.failedPages} com falha` : ''}

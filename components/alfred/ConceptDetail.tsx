@@ -6,7 +6,7 @@ import type { Concept } from '@/lib/alfred/types';
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2 border-t border-line pt-5">
-      <h2 className="m-0 text-[12px] font-semibold tracking-[0.14em] text-brand uppercase">{title}</h2>
+      <h2 className="m-0 text-[11.5px] font-medium tracking-[0.14em] text-fg-subtle uppercase">{title}</h2>
       {children}
     </section>
   );
@@ -33,7 +33,7 @@ export function ConceptDetail({ concept: c }: { concept: Concept }) {
           <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-[14px]">
             {c.references.map((r, i) => (
               <li key={`${r.documentId}-${r.page ?? i}`}>
-                <Link href={`/alfred/biblioteca/${r.documentId}`} className="text-brand underline underline-offset-2 hover:text-brand-hover">{r.documentName}</Link>
+                <Link href={`/alfred/biblioteca/${r.documentId}`} className="text-fg underline underline-offset-2 hover:text-fg-muted">{r.documentName}</Link>
                 {r.page !== null && <span className="num text-fg-subtle"> · página {r.page}</span>}
               </li>
             ))}

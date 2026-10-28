@@ -80,14 +80,26 @@ test.describe('chat', () => {
     expect((await box.boundingBox())!.height).toBeGreaterThan(h0);
   });
 
-  test('sidebar: marca, nova conversa, cinco módulos e histórico vazio', async ({ page }) => {
+  test('integrado à trakfy: item no menu da trakfy, abas das seções e histórico ao lado', async ({ page }) => {
     await page.goto('/alfred');
-    const side = page.locator('aside');
-    await expect(side.getByText('Strategic Intelligence')).toBeVisible();
-    await expect(side.getByRole('link', { name: 'Nova conversa' })).toBeVisible();
-    for (const n of ['Chat', 'Biblioteca', 'Conhecimento', 'Projetos', 'Configurações']) await expect(side.getByRole('link', { name: n, exact: true }).first()).toBeVisible();
-    await expect(side.getByText(/Nenhuma conversa ainda/)).toBeVisible();
-    await expect(side.getByRole('link', { name: 'Chat' })).toHaveAttribute('aria-current', 'page');
+    const trakfy = page.locator('aside').first();
+    await expect(trakfy.getByRole('link', { name: 'Alfred', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(trakfy.getByRole('link', { name: 'Visão geral', exact: true })).toBeVisible();
+    const tabs = page.getByRole('navigation', { name: 'Seções do Alfred' });
+    for (const n of ['Chat', 'Biblioteca', 'Conhecimento', 'Projetos', 'Configurações']) await expect(tabs.getByRole('link', { name: n, exact: true })).toBeVisible();
+    await expect(tabs.getByRole('link', { name: 'Chat' })).toHaveAttribute('aria-current', 'page');
+    const history = page.getByRole('complementary', { name: 'Histórico de conversas' });
+    await expect(history.getByRole('link', { name: 'Nova conversa' })).toBeVisible();
+    await expect(history.getByText(/Nenhuma conversa ainda/)).toBeVisible();
+  });
+
+  test('do menu da trakfy chega ao Alfred e às outras seções pelas abas', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('aside').first().getByRole('link', { name: 'Alfred', exact: true }).click();
+    await expect(page).toHaveURL(/\/alfred$/);
+    await page.getByRole('navigation', { name: 'Seções do Alfred' }).getByRole('link', { name: 'Biblioteca' }).click();
+    await expect(page).toHaveURL(/\/alfred\/biblioteca$/);
+    await expect(page.locator('aside').first().getByRole('link', { name: 'Alfred', exact: true })).toHaveAttribute('aria-current', 'page');
   });
 
   test('itens inexistentes dão "Não encontrado", sem dado inventado', async ({ page }) => {
@@ -113,35 +125,49 @@ test.describe('biblioteca e projetos sem backend', () => {
 test.describe('celular', () => {
   test.use({ viewport: { width: 390, height: 780 } });
 
-  test('menu abre como drawer, navega e fecha; Esc fecha', async ({ page }) => {
-    await page.goto('/alfred');
-    await expect(page.locator('aside')).toBeHidden();
-    await page.getByRole('button', { name: 'Abrir menu' }).click();
-    const drawer = page.getByRole('dialog', { name: 'Menu do Alfred' });
+  test('o menu da trakfy abre, leva ao Alfred e fecha; Esc fecha', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Menu' }).click();
+    const drawer = page.getByRole('dialog', { name: 'Menu de navegação' });
     await expect(drawer).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(drawer).toBeHidden();
-    await page.getByRole('button', { name: 'Abrir menu' }).click();
-    await drawer.getByRole('link', { name: 'Biblioteca' }).click();
-    await expect(page).toHaveURL(/\/alfred\/biblioteca$/);
+    await page.getByRole('button', { name: 'Menu' }).click();
+    await drawer.getByRole('link', { name: 'Alfred', exact: true }).click();
+    await expect(page).toHaveURL(/\/alfred$/);
     await expect(drawer).toBeHidden();
+  });
+
+  test('o histórico abre como janela "Conversas" e fecha com Esc', async ({ page }) => {
+    await page.goto('/alfred');
+    await expect(page.getByRole('complementary', { name: 'Histórico de conversas' })).toBeHidden();
+    await page.getByRole('button', { name: 'Conversas' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Conversas' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('link', { name: 'Nova conversa' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
   });
 
   test('campo de mensagem fica fixo na parte de baixo e as áreas de toque são confortáveis', async ({ page }) => {
     await page.goto('/alfred');
     const box = (await page.getByLabel('Mensagem para o Alfred').boundingBox())!;
     expect(box.y + box.height).toBeGreaterThan(780 - 120);
-    for (const name of ['Abrir menu', 'Enviar mensagem']) {
+    for (const name of ['Menu', 'Enviar mensagem']) {
       const b = (await page.getByRole('button', { name }).boundingBox())!;
       expect(Math.min(b.width, b.height)).toBeGreaterThanOrEqual(40);
     }
   });
 });
 
-test('as telas da trakfy continuam na paleta e na marca da trakfy', async ({ page }) => {
+test('o Alfred usa a identidade da trakfy: mesmo fundo, sem tema próprio e sem dourado', async ({ page }) => {
   await page.goto('/');
-  const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  expect(bg).toBe('rgb(15, 17, 20)');
-  await expect(page.locator('main')).not.toHaveClass(/alfred/);
+  const home = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(home).toBe('rgb(15, 17, 20)');
+  await page.goto('/alfred');
+  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe(home);
   expect(await page.locator('.alfred').count()).toBe(0);
+  // O botão principal usa o verde-limão da trakfy (#C8F169), não o dourado antigo (#E5C079).
+  const cta = await page.getByRole('complementary', { name: 'Histórico de conversas' }).getByRole('link', { name: 'Nova conversa' }).evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(cta).toBe('rgb(200, 241, 105)');
 });

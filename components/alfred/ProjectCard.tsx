@@ -12,7 +12,7 @@ export function ProjectCard({ project: p }: { project: Project }) {
   const status = PROJECT_STATUS[p.status];
   return (
     <li className="flex">
-      <Link href={`/alfred/projetos/${p.id}`} className="flex w-full flex-col gap-3 rounded-xl border border-line bg-surface p-4 hover:border-line-strong hover:bg-surface-hover">
+      <Link href={`/alfred/projetos/${p.id}`} className="flex w-full flex-col gap-3 rounded-lg border border-line bg-surface p-4 hover:border-line-strong hover:bg-surface-hover">
         <span className="inline-flex items-center gap-2 text-[12px] text-fg-muted"><span aria-hidden="true" className={`size-1.5 rounded-full ${status.dot}`} />{status.label}</span>
         <span className="text-[15.5px] font-medium">{p.name}</span>
         {p.description && <span className="line-clamp-2 text-[13px] leading-relaxed text-fg-muted">{p.description}</span>}
