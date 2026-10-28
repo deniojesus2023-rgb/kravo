@@ -93,8 +93,10 @@ export async function sendMessage(deps: { store: ChatStore; quota: Quota; model:
     const assistantMessage = await store.addMessage(conversationId, 'assistant', answer, citedSources(answer, excerpts));
     await store.touch(conversationId);
     return { ok: true, conversationId, userMessage, assistantMessage };
-  } catch {
+  } catch (error) {
     await quota.refund(day).catch(() => undefined);
-    return { ok: false, error: 'falha_ao_salvar' };
+    // Código técnico do banco (ex.: 42703 = coluna inexistente, 42501 = sem permissão), para achar a causa.
+    const code = (error as { code?: unknown } | null)?.code;
+    return { ok: false, error: 'falha_ao_salvar', ...(typeof code === 'string' && /^[A-Za-z0-9_]{3,12}$/.test(code) ? { detail: code } : {}) };
   }
 }

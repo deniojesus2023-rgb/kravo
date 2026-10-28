@@ -101,6 +101,16 @@ describe('envio de mensagem', () => {
     expect(m.usage.refunds).toBe(1);
   });
 
+  it('falha ao salvar mostra o código técnico do banco, e só ele', async () => {
+    const m = memory();
+    m.store.addMessage = async () => Promise.reject(Object.assign(new Error(`falha com ${KEY}`), { code: '42703' }));
+    const r = await sendMessage({ store: m.store, quota: m.quota, model: model('ok'), dailyLimit: 50, now: NOW }, { conversationId: null, text: 'oi' });
+    expect(r).toEqual({ ok: false, error: 'falha_ao_salvar', detail: '42703' });
+    m.store.addMessage = async () => Promise.reject(Object.assign(new Error('x'), { code: `código com ${KEY} espaço` }));
+    const r2 = await sendMessage({ store: m.store, quota: m.quota, model: model('ok'), dailyLimit: 50, now: NOW }, { conversationId: null, text: 'oi' });
+    expect(r2).toEqual({ ok: false, error: 'falha_ao_salvar' });
+  });
+
   it('o dia da cota é o de São Paulo', async () => {
     const days: string[] = [];
     const m = memory();

@@ -6,19 +6,25 @@ import type { ChatMessageData, ChatSource, Conversation } from './types';
 
 const toSources = (raw: unknown): ChatSource[] | undefined => (Array.isArray(raw) && raw.length > 0 ? (raw as ChatSource[]) : undefined);
 
-const fail = (what: string) => new Error(`falha ao ${what}`);
+/** Erro de banco com o código técnico do Postgres/PostgREST (ex.: 42703 = coluna inexistente). Nunca a mensagem. */
+export class StoreError extends Error {
+  constructor(what: string, readonly code: string | null = null) {
+    super(`falha ao ${what}`);
+  }
+}
+const fail = (what: string, error?: { code?: unknown } | null) => new StoreError(what, typeof error?.code === 'string' && /^[A-Za-z0-9_]{3,12}$/.test(error.code) ? error.code : null);
 
 /** Conversas do usuário logado. Usa o cliente dele: a RLS garante que só enxerga e grava o que é seu. */
 export function supabaseChatStore(supabase: SupabaseClient): ChatStore {
   return {
     async conversationExists(id) {
       const { data, error } = await supabase.from('alfred_conversations').select('id').eq('id', id).maybeSingle();
-      if (error) throw fail('ler conversa');
+      if (error) throw fail('ler conversa', error);
       return Boolean(data);
     },
     async createConversation(title) {
       const { data, error } = await supabase.from('alfred_conversations').insert({ title }).select('id').single();
-      if (error || !data) throw fail('criar conversa');
+      if (error || !data) throw fail('criar conversa', error);
       return data.id as string;
     },
     async addMessage(conversationId, role, content, sources) {
@@ -27,12 +33,12 @@ export function supabaseChatStore(supabase: SupabaseClient): ChatStore {
         .insert({ conversation_id: conversationId, role, content, ...(sources && sources.length > 0 ? { sources } : {}) })
         .select('id, role, content, created_at, sources')
         .single();
-      if (error || !data) throw fail('gravar mensagem');
+      if (error || !data) throw fail('gravar mensagem', error);
       return { id: data.id, role: data.role, content: data.content, createdAt: data.created_at, sources: toSources(data.sources) };
     },
     async recentTurns(conversationId, limit) {
       const { data, error } = await supabase.from('alfred_messages').select('role, content').eq('conversation_id', conversationId).order('created_at', { ascending: false }).limit(limit);
-      if (error) throw fail('ler mensagens');
+      if (error) throw fail('ler mensagens', error);
       return (data ?? []).reverse().map((m): ChatTurn => ({ role: m.role, content: m.content }));
     },
     async touch(conversationId) {
