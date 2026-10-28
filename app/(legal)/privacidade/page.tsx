@@ -83,7 +83,10 @@ export default function PrivacyPage() {
         </P>
         <P>
           Se você usar o Alfred, o texto da conversa é enviado à OpenAI (provedor de IA) para gerar cada resposta, no
-          limite do que você escreve. Não enviamos CPF nem dados de compradores. Não usamos o conteúdo para outro fim.
+          limite do que você escreve; com a base de conhecimento ativa, o texto da pergunta também é enviado para a busca.
+          Os documentos da biblioteca do Alfred (enviados pelos administradores) são compartilhados por todos os usuários
+          e também são processados pela OpenAI para serem indexados. Não enviamos CPF nem dados de compradores. Não
+          usamos o conteúdo para outro fim.
         </P>
         <P>
           Se você ligar a API de Conversões em uma oferta, enviamos à Meta, para o pixel que você indicou, cada venda

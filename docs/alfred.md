@@ -2,7 +2,7 @@
 
 Módulo de consultoria estratégica dentro do mesmo app, em `/alfred`.
 
-**Estado:** o **chat** está implementado (modelo da OpenAI, conversas salvas, histórico, renomear, excluir, limite diário), mas **ainda não rodou contra a OpenAI real**: foi testado só com o provedor simulado. Biblioteca (PDFs), Conhecimento e Projetos continuam só como interface, com estado vazio e botões desativados com o motivo na tela. Nenhum dado fictício é exibido.
+**Estado:** o **chat** está implementado (modelo da OpenAI, conversas salvas, histórico, renomear, excluir, limite diário), mas **ainda não rodou contra a OpenAI real**: foi testado só com o provedor simulado. A **base de conhecimento de PDFs** também está implementada (envio, leitura única, trechos com embedding, busca no chat com Fontes), igualmente **sem ter rodado contra a OpenAI e o Supabase reais**. Conhecimento (extração de conceitos) e Projetos continuam só como interface, com estado vazio. Nenhum dado fictício é exibido.
 
 ## Decisões
 - **Rota separada** (`app/alfred/`), com layout próprio. As telas da trakfy não foram alteradas; um teste e2e confere que a paleta e a marca da trakfy continuam as mesmas.
@@ -25,10 +25,21 @@ Módulo de consultoria estratégica dentro do mesmo app, em `/alfred`.
 - **Privacidade:** o texto da conversa é enviado à OpenAI; a política de privacidade foi atualizada. Dados de compradores e CPF da trakfy não entram.
 - Sem streaming: a resposta aparece inteira (indicador "analisando" enquanto isso). `maxDuration` do segmento é 60 s.
 
+## Base de conhecimento (PDFs): implementada, não validada com serviços reais
+**Ideia:** cada PDF é lido **uma vez**; o texto vira trechos (~1.200 caracteres, por página, com sobreposição) guardados com um *embedding* (vetor de 1536 números). A cada pergunta, o chat busca os trechos mais relevantes de **todos** os documentos e os entrega ao modelo como material de consulta. O Alfred não "lembra" de tudo de cabeça: ele consulta a base. Cada PDF novo aumenta a base sem reler os antigos.
+- **Compartilhada:** todos os usuários logados consultam a mesma base (pelo Alfred). **Só administradores** (`ALFRED_ADMIN_EMAILS`) enviam, reprocessam e excluem. Sem essa variável, ninguém envia. O texto dos trechos **não é legível pelo navegador** (sem permissão na tabela); a busca roda no servidor e devolve só os poucos trechos de cada pergunta.
+- **Variáveis (Vercel):** `OPENAI_API_KEY`, `ALFRED_EMBEDDING_MODEL` (nome do modelo de embedding; precisa aceitar `dimensions: 1536`, que é o tamanho fixo da coluna), `ALFRED_ADMIN_EMAILS` (e-mails separados por vírgula), além do `SUPABASE_SERVICE_ROLE_KEY` que já existe.
+- **Migrações (rodar no SQL Editor, nesta ordem, antes do deploy):** `20261029120000_alfred_base_de_conhecimento.sql` (extensão `vector`, `alfred_documents`, `alfred_chunks`, coluna `sources` em `alfred_messages`, bucket privado `alfred-documents`) e `20261029120100_alfred_busca.sql` (índices HNSW e GIN e a função `alfred_search_chunks`).
+- **Envio:** o navegador sobe o PDF direto ao armazenamento privado com link assinado (o servidor do app tem limite de corpo), até 50 MB e 2.000 páginas. O original é guardado; só o servidor o acessa.
+- **Leitura em partes** (`lib/alfred/ingest.ts`): até 12 páginas ou ~30 s por passo; o navegador repete o passo até terminar, com o progresso real (páginas lidas, sem texto, com falha). Retoma de onde parou ("Continuar leitura"), uma trava impede dois processamentos juntos, e repetir um passo não duplica trechos. **Mantenha a aba aberta** durante a leitura.
+- **Estados honestos:** página que falha entra em "Parcial" com a lista de páginas; página sem texto (capa, imagem) conta à parte; PDF sem nenhum texto (escaneado) termina em "Erro: sem texto". **Não há OCR.** Arquivo que não é PDF, protegido por senha, duplicado (SHA-256) ou grande demais viram erro com texto claro.
+- **No chat** (`lib/alfred/knowledge.ts`, `persona.ts`): embedding da pergunta (+ a pergunta anterior do usuário) → busca híbrida (significado + palavras em português, fusão RRF) → até 8 trechos no prompt como **dados, não instruções** (injeção por PDF) → o modelo cita `[n]` → só as fontes realmente citadas viram "Fontes" (documento e página). Se a busca falhar, o Alfred responde sem a base e **avisa na própria resposta**.
+- **Limites conhecidos:** a busca por palavras não ignora acento (a busca por significado cobre isso); a relevância não tem corte numérico (o prompt manda ignorar trecho irrelevante); com muitos PDFs a qualidade da busca precisa de ajuste com perguntas reais; trechos de livros protegidos são servidos a todos os usuários em pedaços (o prompt manda parafrasear, mas a responsabilidade pelos direitos autorais dos PDFs enviados é de quem envia).
+- **Testes:** os testes de banco usam um substituto simples do pgvector (o PGlite desta versão não o traz; ver `tests/db/harness.ts`): validam esquema, permissões e a lógica da busca, **não o pgvector real**. A sintaxe das migrações (`extensions.vector`, `hnsw`, operador `<=>`) segue a documentação do pgvector/Supabase, mas só foi exercitada no substituto.
+
 ## O que falta conectar
 | Recurso | Onde ligar |
 |---|---|
-| PDFs | `listDocuments`/`getDocument`, `capabilities.documents`, e `onFiles` + `limitsText` em `DocumentUpload`. O progresso exibido vem de `processedPages`/`failedPages` reais. |
 | Conhecimento | `listConcepts`/`getConcept`, `capabilities.knowledge`. |
 | Projetos | `listProjects`/`getProject`, criação de projeto (botão "Novo projeto" desativado), `capabilities.projects`. As abas Análises, Conversas, Documentos e Memória precisam das associações. |
 | Anexos no chat | `capabilities.attachments` + tratamento no `ChatComposer`. |

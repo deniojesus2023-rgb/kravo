@@ -3,9 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { sendMessage } from '@/lib/alfred/chat';
 import type { SendResult } from '@/lib/alfred/errors';
-import { chatConfig } from '@/lib/alfred/config';
+import { chatConfig, embeddingConfig } from '@/lib/alfred/config';
+import { createOpenAIEmbedder } from '@/lib/alfred/embeddings';
 import { createOpenAIModel } from '@/lib/alfred/model';
 import { getAlfredSession } from '@/lib/alfred/session';
+import { supabaseKnowledge } from '@/lib/alfred/ingest-store';
 import { supabaseChatStore, supabaseQuota } from '@/lib/alfred/store';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -22,8 +24,16 @@ export async function sendMessageAction(conversationId: string | null, text: str
   // Sem sessão, banco, chave ou modelo não há como responder: o campo já vem desativado, isto é só a segunda trava.
   if (!status.available || !supabase || !userId || !config || !admin) return { ok: false, error: 'indisponivel' };
 
+  // A base de conhecimento só entra se o modelo de embedding estiver configurado.
+  const embed = embeddingConfig();
   const result = await sendMessage(
-    { store: supabaseChatStore(supabase), quota: supabaseQuota(admin, userId), model: createOpenAIModel({ apiKey: config.apiKey, model: config.model }), dailyLimit: config.dailyLimit },
+    {
+      store: supabaseChatStore(supabase),
+      quota: supabaseQuota(admin, userId),
+      model: createOpenAIModel({ apiKey: config.apiKey, model: config.model }),
+      dailyLimit: config.dailyLimit,
+      knowledge: embed ? supabaseKnowledge(admin, createOpenAIEmbedder({ apiKey: embed.apiKey, model: embed.model })) : undefined,
+    },
     { conversationId, text },
   );
   // Atualiza o histórico da sidebar.

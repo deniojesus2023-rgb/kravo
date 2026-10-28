@@ -92,11 +92,9 @@ describe('navegação', () => {
 });
 
 describe('camada de dados sem backend', () => {
-  it('documentos, conceitos e projetos: nada fictício e nenhum recurso declarado disponível', async () => {
-    expect(await data.listDocuments()).toEqual([]);
+  it('conceitos e projetos: nada fictício e nenhum recurso declarado disponível', async () => {
     expect(await data.listConcepts()).toEqual([]);
     expect(await data.listProjects()).toEqual([]);
-    expect(await data.getDocument('x')).toBeNull();
     expect(Object.values(data.capabilities).some(Boolean)).toBe(false);
   });
 });

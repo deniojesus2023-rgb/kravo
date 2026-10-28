@@ -37,3 +37,38 @@ export const UNAVAILABLE_TEXT: Record<ChatUnavailable, string> = {
   sem_chave: 'O Alfred ainda não está conectado a um modelo de IA (falta a chave do provedor no ambiente), então o envio está desativado.',
   sem_modelo: 'O Alfred ainda não tem um modelo escolhido (falta definir ALFRED_MODEL no ambiente), então o envio está desativado.',
 };
+
+/** Chave e modelo de embedding da base de conhecimento, ou `null` se faltar (a base fica desativada). */
+export function embeddingConfig(env: Env = process.env): { apiKey: string; model: string } | null {
+  const apiKey = env.OPENAI_API_KEY?.trim();
+  const model = env.ALFRED_EMBEDDING_MODEL?.trim();
+  return apiKey && model ? { apiKey, model } : null;
+}
+
+/** E-mails dos administradores (podem enviar e apagar documentos). Sem a variável, ninguém é administrador. */
+export function adminEmails(env: Env = process.env): string[] {
+  return (env.ALFRED_ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+export function isAdminEmail(email: string | null, env: Env = process.env): boolean {
+  return email !== null && adminEmails(env).includes(email.trim().toLowerCase());
+}
+
+export type LibraryUnavailable = 'nao_admin' | 'sem_embedding' | 'sem_servico';
+
+/** Por que o envio de documentos está (ou não) liberado para esta pessoa. */
+export function libraryUploadStatus(opts: { isAdmin: boolean; hasServiceKey: boolean; env?: Env }): { available: true } | { available: false; reason: LibraryUnavailable } {
+  if (!opts.isAdmin) return { available: false, reason: 'nao_admin' };
+  if (!embeddingConfig(opts.env ?? process.env)) return { available: false, reason: 'sem_embedding' };
+  if (!opts.hasServiceKey) return { available: false, reason: 'sem_servico' };
+  return { available: true };
+}
+
+export const LIBRARY_UNAVAILABLE_TEXT: Record<LibraryUnavailable, string> = {
+  nao_admin: 'Só administradores adicionam ou removem documentos. Tudo o que está na lista abaixo já faz parte da memória do Alfred para todos.',
+  sem_embedding: 'O envio está desativado: falta definir o modelo de embedding no ambiente do servidor (ALFRED_EMBEDDING_MODEL).',
+  sem_servico: 'O envio está desativado: falta a chave de serviço do banco no ambiente do servidor.',
+};

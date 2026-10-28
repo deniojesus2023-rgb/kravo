@@ -2,7 +2,9 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ChatStore, Quota } from './chat';
 import type { ChatTurn } from './model';
-import type { ChatMessageData, Conversation } from './types';
+import type { ChatMessageData, ChatSource, Conversation } from './types';
+
+const toSources = (raw: unknown): ChatSource[] | undefined => (Array.isArray(raw) && raw.length > 0 ? (raw as ChatSource[]) : undefined);
 
 const fail = (what: string) => new Error(`falha ao ${what}`);
 
@@ -19,10 +21,14 @@ export function supabaseChatStore(supabase: SupabaseClient): ChatStore {
       if (error || !data) throw fail('criar conversa');
       return data.id as string;
     },
-    async addMessage(conversationId, role, content) {
-      const { data, error } = await supabase.from('alfred_messages').insert({ conversation_id: conversationId, role, content }).select('id, role, content, created_at').single();
+    async addMessage(conversationId, role, content, sources) {
+      const { data, error } = await supabase
+        .from('alfred_messages')
+        .insert({ conversation_id: conversationId, role, content, ...(sources && sources.length > 0 ? { sources } : {}) })
+        .select('id, role, content, created_at, sources')
+        .single();
       if (error || !data) throw fail('gravar mensagem');
-      return { id: data.id, role: data.role, content: data.content, createdAt: data.created_at };
+      return { id: data.id, role: data.role, content: data.content, createdAt: data.created_at, sources: toSources(data.sources) };
     },
     async recentTurns(conversationId, limit) {
       const { data, error } = await supabase.from('alfred_messages').select('role, content').eq('conversation_id', conversationId).order('created_at', { ascending: false }).limit(limit);
@@ -59,10 +65,10 @@ export async function getConversation(supabase: SupabaseClient, id: string): Pro
   const { data: c, error } = await supabase.from('alfred_conversations').select('id, title, updated_at').eq('id', id).maybeSingle();
   if (error) throw fail('ler conversa');
   if (!c) return null;
-  const { data: rows, error: e2 } = await supabase.from('alfred_messages').select('id, role, content, created_at').eq('conversation_id', id).order('created_at').limit(500);
+  const { data: rows, error: e2 } = await supabase.from('alfred_messages').select('id, role, content, created_at, sources').eq('conversation_id', id).order('created_at').limit(500);
   if (e2) throw fail('ler mensagens');
   return {
     conversation: { id: c.id, title: c.title, updatedAt: c.updated_at },
-    messages: (rows ?? []).map((m) => ({ id: m.id, role: m.role, content: m.content, createdAt: m.created_at })),
+    messages: (rows ?? []).map((m) => ({ id: m.id, role: m.role, content: m.content, createdAt: m.created_at, sources: toSources(m.sources) })),
   };
 }

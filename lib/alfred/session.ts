@@ -1,6 +1,6 @@
 import 'server-only';
 import { cache } from 'react';
-import { chatStatus } from './config';
+import { chatStatus, isAdminEmail } from './config';
 import { createClient } from '@/lib/supabase/server';
 
 /** Sessão do Alfred por requisição: cliente do usuário, e-mail e se o chat está disponível. */
@@ -10,5 +10,5 @@ export const getAlfredSession = cache(async () => {
   const userId = typeof claims?.sub === 'string' ? claims.sub : null;
   const email = typeof claims?.email === 'string' ? claims.email : null;
   const status = chatStatus({ supabase: Boolean(supabase), signedIn: Boolean(userId) });
-  return { supabase, userId, email, status };
+  return { supabase, userId, email, status, isAdmin: Boolean(userId) && isAdminEmail(email) };
 });

@@ -1,6 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { applyMigrations } from './harness';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 /**
@@ -66,9 +67,7 @@ beforeAll(async () => {
     grant execute on function auth.uid() to anon, authenticated, service_role;
   `);
 
-  for (const file of readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort()) {
-    await db.exec(readFileSync(path.join(MIGRATIONS, file), 'utf8'));
-  }
+  await applyMigrations(db, MIGRATIONS);
 
   // O service_role do Supabase recebe tudo por padrão (e ignora RLS).
   await db.exec('grant all on all tables in schema public to service_role');

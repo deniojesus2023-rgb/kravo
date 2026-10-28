@@ -2,6 +2,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { applyMigrations } from './harness';
 import type { KiwifySale } from '@/lib/kiwify/client';
 import { mapSale } from '@/lib/kiwify/orders';
 
@@ -22,7 +23,7 @@ beforeAll(async () => {
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     grant usage on schema public, auth to anon, authenticated, service_role;
   `);
-  for (const file of readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort()) await db.exec(readFileSync(path.join(MIGRATIONS, file), 'utf8'));
+  await applyMigrations(db, MIGRATIONS);
   await db.query(`insert into auth.users (id, email) values ($1, 'k@exemplo.com')`, [U]);
   conn = (await db.query<{ id: string }>(`insert into public.sales_connections (user_id, platform) values ($1, 'Kiwify') returning id`, [U])).rows[0]!.id;
   offer = (await db.query<{ id: string }>(`insert into public.offers (user_id, name, code, sales_platform, price_cents, sales_product_id) values ($1, 'Vasos', 'VASOS', 'Kiwify', 14990, 'prod-vasos') returning id`, [U])).rows[0]!.id;
