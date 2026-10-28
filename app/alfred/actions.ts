@@ -36,8 +36,9 @@ export async function sendMessageAction(conversationId: string | null, text: str
     },
     { conversationId, text },
   );
-  // Atualiza o histórico da sidebar.
+  // Atualiza o histórico da sidebar. Falha do provedor vai ao log só com o código fixo e o detalhe técnico (nunca texto da conversa nem chave).
   if (result.ok) revalidatePath('/alfred', 'layout');
+  else console.error('[alfred] envio falhou:', result.error, 'detail' in result ? result.detail ?? '' : '');
   return result;
 }
 

@@ -34,7 +34,8 @@ export async function runProcessing(docId: string, onProgress: (p: Progress) => 
       await new Promise((res) => setTimeout(res, 1500 * transient));
       continue;
     }
-    return { ok: false, message: INGEST_ERROR_TEXT[r.error] ?? INGEST_ERROR_TEXT.indisponivel };
+    const detail = 'detail' in r && r.detail ? ` (detalhe técnico: ${r.detail})` : '';
+    return { ok: false, message: `${INGEST_ERROR_TEXT[r.error] ?? INGEST_ERROR_TEXT.indisponivel}${detail}` };
   }
   return { ok: false, message: 'O documento é grande: use "Continuar" para seguir a leitura.' };
 }

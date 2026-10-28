@@ -47,7 +47,7 @@ export type IngestErrorCode = 'ocupado' | 'arquivo_ausente' | 'nao_e_pdf' | 'pdf
 
 export type StepResult =
   | { ok: true; done: boolean; status: DocStatus; pages: number; processedPages: number; failedPages: number; emptyPages: number }
-  | { ok: false; error: IngestErrorCode; retryable: boolean };
+  | { ok: false; error: IngestErrorCode; retryable: boolean; detail?: string };
 
 export interface IngestDeps {
   store: IngestStore;
@@ -76,9 +76,9 @@ export async function processStep(deps: IngestDeps, docId: string): Promise<Step
   const doc = await store.claim(docId, LOCK_SECONDS);
   if (!doc) return { ok: false, error: 'ocupado', retryable: true };
 
-  const fail = async (error: IngestErrorCode, retryable: boolean, status: DocStatus | null = 'erro'): Promise<StepResult> => {
+  const fail = async (error: IngestErrorCode, retryable: boolean, status: DocStatus | null = 'erro', detail?: string | null): Promise<StepResult> => {
     await store.save(docId, { ...(status ? { status } : {}), lastError: error, releaseLock: true }).catch(() => undefined);
-    return { ok: false, error, retryable };
+    return { ok: false, error, retryable, ...(detail ? { detail } : {}) };
   };
 
   let reader: PdfReader | null = null;
@@ -128,7 +128,8 @@ export async function processStep(deps: IngestDeps, docId: string): Promise<Step
       } catch (error) {
         const kind: ModelErrorKind = error instanceof ModelError ? error.kind : 'indisponivel';
         // Sem avançar o cursor: repetir o passo refaz exatamente estas páginas.
-        return PERSISTENT.includes(kind) ? await fail(kind, false) : await fail(kind, true, null);
+        const detail = error instanceof ModelError ? error.detail : null;
+        return PERSISTENT.includes(kind) ? await fail(kind, false, 'erro', detail) : await fail(kind, true, null, detail);
       }
       await store.insertChunks(docId, flat.map((f, i) => ({ ...f, embedding: vectors[i]! })));
     }

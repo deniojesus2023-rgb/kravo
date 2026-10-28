@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { CONTEXT_CHARS, fitContext, sendMessage, titleFrom, type ChatStore, type Quota } from '@/lib/alfred/chat';
-import { chatConfig, chatStatus, DEFAULT_DAILY_LIMIT, dailyLimit, MAX_DAILY_LIMIT } from '@/lib/alfred/config';
+import { chatConfig, chatStatus, DEFAULT_DAILY_LIMIT, dailyLimit, embeddingConfig, MAX_DAILY_LIMIT } from '@/lib/alfred/config';
 import { ERROR_TEXT, MAX_MESSAGE_CHARS } from '@/lib/alfred/errors';
-import { ModelError, createOpenAIModel, type AlfredModel, type ChatTurn } from '@/lib/alfred/model';
+import { ModelError, classifyProviderError, createOpenAIModel, isValidModelId, type AlfredModel, type ChatTurn } from '@/lib/alfred/model';
 import { ALFRED_SYSTEM_PROMPT } from '@/lib/alfred/persona';
 
 const KEY = 'sk-teste-chave-falsa-0123456789';
@@ -198,5 +198,37 @@ describe('configuração do chat', () => {
   it('o prompt do Alfred proíbe inventar dados e avisa que não há acesso a documentos', () => {
     expect(ALFRED_SYSTEM_PROMPT).toMatch(/Nunca invente/);
     expect(ALFRED_SYSTEM_PROMPT).toMatch(/não tem acesso a documentos/);
+  });
+});
+
+describe('nome do modelo e diagnóstico de erro', () => {
+  it('reconhece nomes de modelo válidos e recusa os mal escritos (ex.: com espaço)', () => {
+    for (const ok of ['gpt-4o', 'gpt-4o-mini', 'text-embedding-3-small', 'ft:gpt-4o:org:nome:id', 'o3']) expect(isValidModelId(ok)).toBe(true);
+    for (const bad of ['Alfred 1.0', 'Alfred', ' gpt-4o', 'gpt 4o', 'modelo\n', '', 'gpt-4ó', '-gpt', 'a'.repeat(101)]) expect(bad === 'Alfred' ? true : isValidModelId(bad)).toBe(bad === 'Alfred');
+  });
+  it('ALFRED_MODEL mal escrito desativa o chat com explicação, sem chamar a OpenAI', () => {
+    const env = { OPENAI_API_KEY: KEY, ALFRED_MODEL: 'Alfred 1.0' };
+    expect(chatStatus({ supabase: true, signedIn: true, env })).toEqual({ available: false, reason: 'modelo_mal_escrito' });
+    expect(chatConfig(env)).toBeNull();
+    expect(embeddingConfig({ OPENAI_API_KEY: KEY, ALFRED_EMBEDDING_MODEL: 'Alfred 1.0' })).toBeNull();
+  });
+  it('400 de modelo inválido vira modelo_invalido; outros 400 viram requisicao_recusada com detalhe', () => {
+    expect(classifyProviderError(400, { message: 'invalid model ID', type: 'invalid_request_error', code: null }).kind).toBe('modelo_invalido');
+    expect(classifyProviderError(400, { message: "The model `x` does not exist or you do not have access to it." }).kind).toBe('modelo_invalido');
+    expect(classifyProviderError(400, { message: 'This is not a chat model and thus not supported in the v1/chat/completions endpoint.' }).kind).toBe('modelo_invalido');
+    const e = classifyProviderError(400, { message: "Unsupported parameter: 'max_completion_tokens' is not supported with this model.", code: 'unsupported_parameter', param: 'max_completion_tokens', type: 'invalid_request_error' });
+    expect(e.kind).toBe('requisicao_recusada');
+    expect(e.detail).toBe('unsupported_parameter / max_completion_tokens / invalid_request_error');
+  });
+  it('o detalhe técnico nunca carrega a mensagem do provedor, a chave ou texto livre', () => {
+    const e = classifyProviderError(400, { message: `erro com ${KEY}`, code: `código com espaço ${KEY}`, param: KEY + '!!', type: 'x'.repeat(200) });
+    expect(e.detail).toBeNull();
+    expect(JSON.stringify(e)).not.toContain(KEY);
+  });
+  it('o detalhe chega até o resultado do envio, sem a chave', async () => {
+    const m = memory();
+    const bad: AlfredModel = { complete: async () => Promise.reject(classifyProviderError(400, { code: 'unsupported_parameter', param: 'max_tokens' })) };
+    const r = await sendMessage({ store: m.store, quota: m.quota, model: bad, dailyLimit: 50, now: NOW }, { conversationId: null, text: 'oi' });
+    expect(r).toEqual({ ok: false, error: 'requisicao_recusada', detail: 'unsupported_parameter / max_tokens' });
   });
 });

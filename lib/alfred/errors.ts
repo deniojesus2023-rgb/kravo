@@ -9,7 +9,7 @@ export type SendErrorCode = 'mensagem_vazia' | 'mensagem_longa' | 'conversa_inex
 
 export type SendResult =
   | { ok: true; conversationId: string; userMessage: ChatMessageData; assistantMessage: ChatMessageData }
-  | { ok: false; error: SendErrorCode };
+  | { ok: false; error: SendErrorCode; /** Código técnico curto do provedor, para diagnóstico. */ detail?: string };
 
 export const ERROR_TEXT: Record<SendErrorCode, string> = {
   mensagem_vazia: 'Escreva uma mensagem antes de enviar.',

@@ -83,7 +83,7 @@ export async function sendMessage(deps: { store: ChatStore; quota: Quota; model:
     answer = await model.complete(system, fitContext([...history, { role: 'user', content: text }]));
   } catch (error) {
     await quota.refund(day).catch(() => undefined);
-    return { ok: false, error: error instanceof ModelError ? error.kind : 'indisponivel' };
+    return error instanceof ModelError ? { ok: false, error: error.kind, ...(error.detail ? { detail: error.detail } : {}) } : { ok: false, error: 'indisponivel' };
   }
 
   if (knowledgeFailed) answer += '\n\n_Nota: não consegui consultar a base de conhecimento agora; esta resposta não usa os documentos da biblioteca._';
