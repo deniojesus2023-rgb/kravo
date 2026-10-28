@@ -7,7 +7,7 @@ import { UploadCloud } from 'lucide-react';
  * Área de envio de PDFs (arrastar e soltar ou escolher arquivos). Sem backend de documentos ela fica desativada
  * e diz isso: nenhum arquivo é lido, enviado nem listado como "enviado".
  */
-export function DocumentUpload({ enabled = false, limitsText, onFiles }: { enabled?: boolean; limitsText?: string; onFiles?: (files: File[]) => void }) {
+export function DocumentUpload({ enabled = false, limitsText, disabledText, onFiles }: { enabled?: boolean; limitsText?: string; disabledText?: string; onFiles?: (files: File[]) => void }) {
   const [over, setOver] = useState(false);
   const active = enabled && Boolean(onFiles);
 
@@ -36,7 +36,7 @@ export function DocumentUpload({ enabled = false, limitsText, onFiles }: { enabl
         <input type="file" accept="application/pdf,.pdf" multiple disabled={!active} onChange={(e) => (pick(e.target.files), (e.target.value = ''))} className="sr-only" />
       </label>
       <p className="m-0 max-w-[56ch] text-[12.5px] leading-relaxed text-fg-subtle">
-        {active ? (limitsText ?? '') : 'O envio está desativado: o processamento de documentos ainda não está conectado. Os limites de tamanho e de páginas serão exibidos aqui quando estiver.'}
+        {active ? (limitsText ?? '') : (disabledText ?? 'O envio está desativado: o processamento de documentos ainda não está conectado.')}
       </p>
     </div>
   );

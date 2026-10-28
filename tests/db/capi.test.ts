@@ -2,6 +2,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { applyMigrations } from './harness';
 
 /** API de Conversões no banco (migrações reais, em PGlite): isolamento, deduplicação e restrições. */
 
@@ -32,7 +33,7 @@ beforeAll(async () => {
     grant usage on schema public, auth to anon, authenticated, service_role;
     grant execute on function auth.uid() to anon, authenticated, service_role;
   `);
-  for (const file of readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort()) await db.exec(readFileSync(path.join(MIGRATIONS, file), 'utf8'));
+  await applyMigrations(db, MIGRATIONS);
   await db.exec('grant all on all tables in schema public to service_role');
   await db.query(`insert into auth.users (id, email) values ($1, 'a@exemplo.com'), ($2, 'b@exemplo.com')`, [A, B]);
   const o = await db.query<{ id: string }>(`insert into public.offers (user_id, name, code, sales_platform, price_cents, status) values ($1, 'Oferta A', 'OA1', 'Kiwify', 9700, 'em_teste') returning id`, [A]);

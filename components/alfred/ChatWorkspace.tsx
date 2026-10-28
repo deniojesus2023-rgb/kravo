@@ -48,7 +48,7 @@ export function ChatWorkspace({ conversationId: initialId = null, initialMessage
         // Nada foi gravado nem contado: a mensagem volta para o campo, para tentar de novo.
         setMessages(before);
         setDraft(text);
-        setError(ERROR_TEXT[result.error] ?? ERROR_TEXT.indisponivel);
+        setError(`${ERROR_TEXT[result.error] ?? ERROR_TEXT.indisponivel}${result.detail ? ` (detalhe técnico: ${result.detail})` : ''}`);
       }
     } catch {
       setMessages(before);

@@ -102,9 +102,8 @@ test.describe('biblioteca e projetos sem backend', () => {
   test('nada de fictício; ações desativadas dizem por quê', async ({ page }) => {
     await page.goto('/alfred/biblioteca');
     await expect(page.getByRole('heading', { name: 'Nenhum documento na biblioteca' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Adicionar documentos/ })).toHaveAttribute('aria-disabled', 'true');
     await expect(page.getByLabel('Selecionar arquivos')).toBeDisabled();
-    await expect(page.getByText(/O envio está desativado/)).toBeVisible();
+    await expect(page.getByText(/Só administradores adicionam ou removem documentos/)).toBeVisible();
     await page.goto('/alfred/projetos');
     await expect(page.getByRole('heading', { name: 'Nenhum projeto ainda' })).toBeVisible();
     await expect(page.getByRole('button', { name: /Novo projeto/ })).toHaveAttribute('aria-disabled', 'true');

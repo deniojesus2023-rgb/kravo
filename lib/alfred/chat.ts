@@ -1,8 +1,9 @@
 import { saoPauloDate } from '@/lib/data/dates';
 import { MAX_MESSAGE_CHARS, type SendResult } from './errors';
-import type { ChatMessageData } from './types';
+import { citedSources, knowledgeQuery, type Excerpt, type KnowledgeSearch } from './knowledge';
+import type { ChatMessageData, ChatSource } from './types';
 import { ModelError, type AlfredModel, type ChatTurn } from './model';
-import { ALFRED_SYSTEM_PROMPT } from './persona';
+import { ALFRED_SYSTEM_PROMPT, systemPromptWithKnowledge } from './persona';
 
 /** Quantas mensagens anteriores e quantos caracteres, no máximo, vão como contexto para o modelo. */
 export const CONTEXT_MESSAGES = 30;
@@ -12,7 +13,7 @@ export const CONTEXT_CHARS = 30_000;
 export interface ChatStore {
   conversationExists(id: string): Promise<boolean>;
   createConversation(title: string): Promise<string>;
-  addMessage(conversationId: string, role: 'user' | 'assistant', content: string): Promise<ChatMessageData>;
+  addMessage(conversationId: string, role: 'user' | 'assistant', content: string, sources?: ChatSource[]): Promise<ChatMessageData>;
   /** Últimas mensagens, da mais antiga para a mais nova. */
   recentTurns(conversationId: string, limit: number): Promise<ChatTurn[]>;
   touch(conversationId: string): Promise<void>;
@@ -49,7 +50,7 @@ export function fitContext(history: ChatTurn[], budget = CONTEXT_CHARS): ChatTur
  * Envia uma mensagem e devolve a resposta. Nada é gravado se o modelo falhar (o usuário mantém o texto e
  * tenta de novo) e a cota é devolvida. A mensagem e a resposta são gravadas juntas, só depois do sucesso.
  */
-export async function sendMessage(deps: { store: ChatStore; quota: Quota; model: AlfredModel; dailyLimit: number; now?: Date }, input: { conversationId: string | null; text: string }): Promise<SendResult> {
+export async function sendMessage(deps: { store: ChatStore; quota: Quota; model: AlfredModel; dailyLimit: number; knowledge?: KnowledgeSearch; now?: Date }, input: { conversationId: string | null; text: string }): Promise<SendResult> {
   const { store, quota, model } = deps;
   const text = input.text.trim();
   if (!text) return { ok: false, error: 'mensagem_vazia' };
@@ -64,18 +65,32 @@ export async function sendMessage(deps: { store: ChatStore; quota: Quota; model:
   const day = saoPauloDate(deps.now ?? new Date());
   if ((await quota.consume(day, deps.dailyLimit)) === null) return { ok: false, error: 'limite_diario' };
 
-  let answer: string;
-  try {
-    answer = await model.complete(ALFRED_SYSTEM_PROMPT, fitContext([...history, { role: 'user', content: text }]));
-  } catch (error) {
-    await quota.refund(day).catch(() => undefined);
-    return { ok: false, error: error instanceof ModelError ? error.kind : 'indisponivel' };
+  // Consulta a base de conhecimento. Se a busca falhar, responde sem ela e AVISA na própria resposta.
+  let excerpts: Excerpt[] = [];
+  let knowledgeFailed = false;
+  const query = deps.knowledge ? knowledgeQuery(history, text) : '';
+  if (deps.knowledge && query) {
+    try {
+      excerpts = await deps.knowledge.search(query);
+    } catch {
+      knowledgeFailed = true;
+    }
   }
 
+  let answer: string;
+  try {
+    const system = excerpts.length > 0 ? systemPromptWithKnowledge(excerpts) : ALFRED_SYSTEM_PROMPT;
+    answer = await model.complete(system, fitContext([...history, { role: 'user', content: text }]));
+  } catch (error) {
+    await quota.refund(day).catch(() => undefined);
+    return error instanceof ModelError ? { ok: false, error: error.kind, ...(error.detail ? { detail: error.detail } : {}) } : { ok: false, error: 'indisponivel' };
+  }
+
+  if (knowledgeFailed) answer += '\n\n_Nota: não consegui consultar a base de conhecimento agora; esta resposta não usa os documentos da biblioteca._';
   try {
     const conversationId = input.conversationId ?? (await store.createConversation(titleFrom(text)));
     const userMessage = await store.addMessage(conversationId, 'user', text);
-    const assistantMessage = await store.addMessage(conversationId, 'assistant', answer);
+    const assistantMessage = await store.addMessage(conversationId, 'assistant', answer, citedSources(answer, excerpts));
     await store.touch(conversationId);
     return { ok: true, conversationId, userMessage, assistantMessage };
   } catch {

@@ -32,15 +32,21 @@ export interface AlfredDocument {
   name: string;
   /** Ex.: "PDF". */
   type: string;
-  pages: number;
+  /** `null` até a primeira leitura abrir o arquivo. */
+  pages: number | null;
   uploadedAt: string;
   category: KnowledgeCategory | null;
   status: DocumentStatus;
   /** Dados reais do processamento. Nunca estimados na interface. */
   processedPages: number;
   failedPages: number;
-  concepts: number;
-  references: number;
+  /** Páginas lidas sem texto (capa, imagem, em branco). */
+  emptyPages: number;
+  failedPageList: number[];
+  /** Trechos guardados na base (é o que o Alfred consulta). */
+  chunks: number;
+  /** Código curto do último erro, ou `null`. */
+  lastError: string | null;
 }
 
 export const KNOWLEDGE_CATEGORIES = [
@@ -102,7 +108,6 @@ export interface Project {
 /** O que o backend já oferece (chat e conversas têm estado próprio: `chatStatus` em config.ts). Cada recurso só é habilitado na interface quando o seu valor for `true`. */
 export interface AlfredCapabilities {
   attachments: boolean;
-  documents: boolean;
   knowledge: boolean;
   projects: boolean;
   preferences: boolean;

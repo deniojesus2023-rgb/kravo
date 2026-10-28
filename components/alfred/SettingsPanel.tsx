@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { capabilities } from '@/lib/alfred/data';
 import { UNAVAILABLE_TEXT, type chatStatus } from '@/lib/alfred/config';
 
 const SECTIONS = [
@@ -47,7 +46,7 @@ function Disabled({ children, text = SOON }: { children: ReactNode; text?: strin
  * Configurações. Controles sem comportamento real ficam desabilitados e explicados; só o que existe de fato
  * (a conta, o status dos recursos e os links de privacidade) é funcional.
  */
-export function SettingsPanel({ email, chat }: { email: string | null; chat: ReturnType<typeof chatStatus> }) {
+export function SettingsPanel({ email, chat, library }: { email: string | null; chat: ReturnType<typeof chatStatus>; library: { embeddingModel: string | null; isAdmin: boolean } }) {
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
       <nav aria-label="Seções das configurações" className="flex gap-1 overflow-x-auto lg:sticky lg:top-6 lg:w-[220px] lg:flex-none lg:flex-col">
@@ -98,7 +97,16 @@ export function SettingsPanel({ email, chat }: { email: string | null; chat: Ret
         </Section>
 
         <Section id="biblioteca" title="Biblioteca">
-          <p className="m-0 text-[14px] text-fg-muted">{capabilities.documents ? 'Processamento de documentos conectado.' : 'Processamento de documentos não conectado.'}</p>
+          {library.embeddingModel ? (
+            <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-[14px]">
+              <dt className="text-fg-subtle">Modelo de embedding</dt>
+              <dd className="num m-0">{library.embeddingModel}</dd>
+              <dt className="text-fg-subtle">Seu acesso</dt>
+              <dd className="m-0">{library.isAdmin ? 'Administrador: pode enviar e excluir documentos' : 'Consulta: usa a memória do Alfred, sem enviar documentos'}</dd>
+            </dl>
+          ) : (
+            <p className="m-0 text-[14px] text-fg-muted">A base de conhecimento está desativada: falta definir o modelo de embedding no ambiente (ALFRED_EMBEDDING_MODEL).</p>
+          )}
           <Link href="/alfred/biblioteca" className="w-fit text-[13.5px] text-brand underline underline-offset-2 hover:text-brand-hover">Abrir a Biblioteca</Link>
         </Section>
 
@@ -111,7 +119,7 @@ export function SettingsPanel({ email, chat }: { email: string | null; chat: Ret
         <Section id="privacidade" title="Privacidade e segurança">
           <p className="m-0 text-[14px] leading-relaxed text-fg-muted">
             {chat.available
-              ? 'Suas mensagens são guardadas na sua conta (só você as vê) e enviadas à OpenAI para gerar cada resposta. O CPF e os dados de compradores da trakfy não são enviados: só vai o que você escreve na conversa.'
+              ? 'Suas mensagens são guardadas na sua conta (só você as vê) e enviadas à OpenAI para gerar cada resposta; com a base ativa, o texto da pergunta também é enviado para a busca. O CPF e os dados de compradores da trakfy não são enviados: só vai o que você escreve na conversa. Os documentos da biblioteca são compartilhados por todos que usam o Alfred.'
               : 'Enquanto o Alfred não está conectado a um modelo de IA, nenhuma mensagem é enviada nem guardada.'}
           </p>
           <ul className="m-0 flex list-none flex-col gap-2 p-0 text-[13.5px]">
