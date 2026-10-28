@@ -15,7 +15,7 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
   }
   return (
     <article aria-label="Resposta do Alfred" className="flex gap-3.5">
-      <AlfredMark size={28} className="mt-0.5" />
+      <AlfredMark size={24} className="mt-0.5" />
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         <Markdown source={message.content} />
         {message.sources && message.sources.length > 0 && (
@@ -42,7 +42,7 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
 export function ThinkingIndicator() {
   return (
     <div role="status" className="flex items-center gap-3.5 text-[13.5px] text-fg-muted">
-      <AlfredMark size={28} />
+      <AlfredMark size={24} />
       <span>Alfred está analisando…</span>
     </div>
   );

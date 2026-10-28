@@ -25,11 +25,11 @@ export function KnowledgeSearch({ concepts }: { concepts: Concept[] }) {
       <div className="relative">
         <Search size={17} aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-fg-subtle" />
         <label htmlFor="busca-conhecimento" className="sr-only">Pesquisar conceitos</label>
-        <input id="busca-conhecimento" type="search" value={query} onChange={(e) => setQuery(e.target.value)} aria-controls={resultsId} placeholder="Pesquisar conceitos, técnicas, frameworks…" className="h-12 w-full rounded-xl border border-line-strong bg-surface pr-4 pl-10 text-[15px] placeholder:text-fg-subtle focus:border-brand focus:outline-none" />
+        <input id="busca-conhecimento" type="search" value={query} onChange={(e) => setQuery(e.target.value)} aria-controls={resultsId} placeholder="Pesquisar conceitos, técnicas, frameworks…" className="h-12 w-full rounded-lg border border-line-strong bg-surface pr-4 pl-10 text-[15px] placeholder:text-fg-subtle focus:border-brand focus:outline-none" />
       </div>
       <div role="group" aria-label="Categorias" className="flex flex-wrap gap-2">
         {[null, ...KNOWLEDGE_CATEGORIES].map((c) => (
-          <button key={c ?? 'todas'} type="button" aria-pressed={category === c} onClick={() => setCategory(c)} className={cn('h-9 rounded-full border px-3.5 text-[13px]', category === c ? 'border-brand bg-surface-raised text-fg' : 'border-line text-fg-muted hover:border-line-strong hover:text-fg')}>
+          <button key={c ?? 'todas'} type="button" aria-pressed={category === c} onClick={() => setCategory(c)} className={cn('h-9 rounded-full border px-3.5 text-[13px]', category === c ? 'border-line-strong bg-surface-raised text-fg' : 'border-line text-fg-muted hover:border-line-strong hover:text-fg')}>
             {c ?? 'Todas'}
           </button>
         ))}

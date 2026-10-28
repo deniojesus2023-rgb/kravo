@@ -1,4 +1,4 @@
-import { processStepAction } from '@/app/alfred/biblioteca/actions';
+import { processStepAction } from '@/app/(app)/alfred/biblioteca/actions';
 import { INGEST_ERROR_TEXT } from '@/lib/alfred/errors';
 
 export interface Progress {

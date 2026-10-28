@@ -9,7 +9,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const concept = await getConcept((await params).id);
   if (!concept) notFound();
   return (
-    <div className="mx-auto flex w-full max-w-[760px] flex-col gap-6 px-4 py-6 sm:px-6 lg:py-8">
+    <div className="flex w-full max-w-[800px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-9 lg:py-8">
       <ConceptDetail concept={concept} />
     </div>
   );

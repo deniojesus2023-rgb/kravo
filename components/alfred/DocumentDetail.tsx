@@ -7,7 +7,7 @@ import { DocumentProcessingStatus } from './DocumentProcessingStatus';
 
 function Stat({ label, value, tone }: { label: string; value: number | null; tone?: string }) {
   return (
-    <div className="flex flex-col gap-1 rounded-xl border border-line bg-surface p-4">
+    <div className="flex flex-col gap-1 rounded-lg border border-line bg-surface p-4">
       <dt className="text-[12px] text-fg-subtle">{label}</dt>
       <dd className={`num m-0 text-[24px] font-medium ${tone ?? ''}`}>{value ?? '—'}</dd>
     </div>

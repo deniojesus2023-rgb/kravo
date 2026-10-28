@@ -1,15 +1,14 @@
 export interface NavItem {
   href: string;
   label: string;
-  icon: 'chat' | 'library' | 'knowledge' | 'projects' | 'settings';
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { href: '/alfred', label: 'Chat', icon: 'chat' },
-  { href: '/alfred/biblioteca', label: 'Biblioteca', icon: 'library' },
-  { href: '/alfred/conhecimento', label: 'Conhecimento', icon: 'knowledge' },
-  { href: '/alfred/projetos', label: 'Projetos', icon: 'projects' },
-  { href: '/alfred/configuracoes', label: 'Configurações', icon: 'settings' },
+  { href: '/alfred', label: 'Chat' },
+  { href: '/alfred/biblioteca', label: 'Biblioteca' },
+  { href: '/alfred/conhecimento', label: 'Conhecimento' },
+  { href: '/alfred/projetos', label: 'Projetos' },
+  { href: '/alfred/configuracoes', label: 'Configurações' },
 ];
 
 /** O item de Chat também vale para /alfred/c/[id]. */

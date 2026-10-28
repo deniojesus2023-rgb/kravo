@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { deleteDocumentAction, reprocessDocumentAction } from '@/app/alfred/biblioteca/actions';
+import { deleteDocumentAction, reprocessDocumentAction } from '@/app/(app)/alfred/biblioteca/actions';
 import type { AlfredDocument } from '@/lib/alfred/types';
 import { runProcessing } from './processing';
 import { ConfirmDialog } from './states';

@@ -22,7 +22,7 @@ export default async function Page() {
   const env = getSupabaseEnv();
 
   return (
-    <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-6 px-4 py-6 sm:px-6 lg:py-8">
+    <div className="flex w-full max-w-[1040px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-9 lg:py-8">
       <PageHeader title="Biblioteca de conhecimento" subtitle="Documentos, metodologias e referências utilizadas pelo Alfred." />
       {upload.available && env ? <LibraryUploader supabaseUrl={env.url} supabaseKey={env.key} /> : <DocumentUpload enabled={false} disabledText={LIBRARY_UNAVAILABLE_TEXT[upload.available ? 'sem_servico' : upload.reason]} />}
       {documents === null ? (

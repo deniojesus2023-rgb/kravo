@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { sendMessageAction } from '@/app/alfred/actions';
+import { sendMessageAction } from '@/app/(app)/alfred/actions';
 import { ChatWorkspace } from '@/components/alfred/ChatWorkspace';
 import { unavailableText } from '@/lib/alfred/config';
 import { getAlfredSession } from '@/lib/alfred/session';

@@ -27,7 +27,7 @@ export function DocumentUpload({ enabled = false, limitsText, disabledText, onFi
         setOver(false);
         pick(e.dataTransfer.files);
       }}
-      className={`flex flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-10 text-center ${over ? 'border-brand bg-surface' : 'border-line-strong'}`}
+      className={`flex flex-col items-center gap-3 rounded-lg border border-dashed px-6 py-10 text-center ${over ? 'border-brand bg-surface' : 'border-line-strong'}`}
     >
       <UploadCloud size={26} aria-hidden="true" className="text-fg-subtle" />
       <p className="m-0 text-[14.5px] font-medium">Arraste seus PDFs ou selecione arquivos do dispositivo.</p>
