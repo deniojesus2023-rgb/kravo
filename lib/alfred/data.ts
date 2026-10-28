@@ -1,28 +1,18 @@
-import type { AlfredCapabilities, AlfredDocument, Concept, Conversation, Project } from './types';
+import type { AlfredCapabilities, AlfredDocument, Concept, Project } from './types';
 
 /**
- * Camada de dados do Alfred. Ainda não há backend (modelo de IA, processamento de PDFs, base de conhecimento,
- * projetos): tudo devolve vazio e nenhum recurso é declarado como disponível. Para conectar, troque o corpo
+ * Camada de dados do Alfred. Documentos, conceitos e projetos ainda não têm backend (o chat e as conversas estão em
+ * `store.ts`): estas funções devolvem vazio e nenhum recurso é declarado como disponível. Para conectar, troque o corpo
  * destas funções (por exemplo, leituras no Supabase com a RLS do usuário) e ligue a capacidade correspondente.
  */
 
 export const capabilities: AlfredCapabilities = {
-  chat: false,
-  conversations: false,
   attachments: false,
   documents: false,
   knowledge: false,
   projects: false,
   preferences: false,
 };
-
-export async function listConversations(): Promise<Conversation[]> {
-  return [];
-}
-
-export async function getConversation(_id: string): Promise<Conversation | null> {
-  return null;
-}
 
 export async function listDocuments(): Promise<AlfredDocument[]> {
   return [];

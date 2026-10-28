@@ -58,7 +58,7 @@ test.describe('chat', () => {
     await expect(box).toHaveValue(/Analise esta oferta/);
     await expect(page.getByRole('button', { name: 'Enviar mensagem' })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Anexar arquivo' })).toBeDisabled();
-    await expect(page.getByText(/ainda não está conectado a um modelo de IA/)).toBeVisible();
+    await expect(page.getByText(/O Alfred precisa da conta e do banco configurados/)).toBeVisible();
     // Enter não envia nada: o texto continua no campo e nenhuma mensagem aparece.
     await box.press('Enter');
     await expect(page.getByRole('log')).toHaveCount(0);

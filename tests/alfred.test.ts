@@ -92,8 +92,7 @@ describe('navegação', () => {
 });
 
 describe('camada de dados sem backend', () => {
-  it('nada é fictício e nenhum recurso é declarado disponível', async () => {
-    expect(await data.listConversations()).toEqual([]);
+  it('documentos, conceitos e projetos: nada fictício e nenhum recurso declarado disponível', async () => {
     expect(await data.listDocuments()).toEqual([]);
     expect(await data.listConcepts()).toEqual([]);
     expect(await data.listProjects()).toEqual([]);

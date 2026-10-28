@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { BookOpen, FolderKanban, Library, MessageSquare, Plus, Settings, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { isActive, NAV_ITEMS, type NavItem } from '@/lib/alfred/nav';
@@ -16,10 +16,14 @@ export interface SidebarData {
   conversations: Conversation[];
   /** Instante de referência para os grupos do histórico (vem do servidor, para não divergir na hidratação). */
   nowIso: string;
+  /** Server actions de renomear e excluir. Ausentes = os botões não aparecem. */
+  onRename?: (id: string, title: string) => Promise<{ ok: boolean }>;
+  onDelete?: (id: string) => Promise<{ ok: boolean }>;
 }
 
-export function AppSidebar({ email, conversations, nowIso }: SidebarData) {
+export function AppSidebar({ email, conversations, nowIso, onRename, onDelete }: SidebarData) {
   const pathname = usePathname();
+  const router = useRouter();
   const activeId = pathname.startsWith('/alfred/c/') ? pathname.split('/')[3] : null;
   const name = email ? email.split('@')[0]! : 'Visitante';
 
@@ -50,7 +54,21 @@ export function AppSidebar({ email, conversations, nowIso }: SidebarData) {
       <div className="border-t border-line-faint" />
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <ConversationList conversations={conversations} activeId={activeId} now={new Date(nowIso)} />
+        <ConversationList
+          conversations={conversations}
+          activeId={activeId}
+          now={new Date(nowIso)}
+          onRename={onRename ? async (id, title) => void (await onRename(id, title)) : undefined}
+          onDelete={
+            onDelete
+              ? async (id) => {
+                  const r = await onDelete(id);
+                  // Apagou a conversa aberta: volta para uma conversa nova.
+                  if (r.ok && id === activeId) router.push('/alfred');
+                }
+              : undefined
+          }
+        />
       </div>
 
       <div className="flex items-center gap-3 border-t border-line-faint pt-4">

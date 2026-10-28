@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { capabilities } from '@/lib/alfred/data';
+import { UNAVAILABLE_TEXT, type chatStatus } from '@/lib/alfred/config';
 
 const SECTIONS = [
   { id: 'perfil', label: 'Perfil' },
@@ -46,7 +47,7 @@ function Disabled({ children, text = SOON }: { children: ReactNode; text?: strin
  * Configurações. Controles sem comportamento real ficam desabilitados e explicados; só o que existe de fato
  * (a conta, o status dos recursos e os links de privacidade) é funcional.
  */
-export function SettingsPanel({ email }: { email: string | null }) {
+export function SettingsPanel({ email, chat }: { email: string | null; chat: ReturnType<typeof chatStatus> }) {
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
       <nav aria-label="Seções das configurações" className="flex gap-1 overflow-x-auto lg:sticky lg:top-6 lg:w-[220px] lg:flex-none lg:flex-col">
@@ -81,8 +82,19 @@ export function SettingsPanel({ email }: { email: string | null }) {
         </Section>
 
         <Section id="modelos" title="Modelos de IA">
-          <p className="m-0 text-[14px] text-fg-muted">{capabilities.chat ? 'Modelo conectado.' : 'Nenhum modelo de IA conectado.'}</p>
-          <p className="m-0 text-[12.5px] text-fg-subtle">A escolha de modelo aparece aqui quando a conversação estiver conectada.</p>
+          {chat.available ? (
+            <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-[14px]">
+              <dt className="text-fg-subtle">Provedor</dt>
+              <dd className="m-0">OpenAI</dd>
+              <dt className="text-fg-subtle">Modelo</dt>
+              <dd className="num m-0">{chat.model}</dd>
+              <dt className="text-fg-subtle">Limite diário</dt>
+              <dd className="num m-0">{chat.dailyLimit} mensagens por pessoa</dd>
+            </dl>
+          ) : (
+            <p className="m-0 text-[14px] text-fg-muted">{UNAVAILABLE_TEXT[chat.reason]}</p>
+          )}
+          <p className="m-0 text-[12.5px] text-fg-subtle">O modelo e o limite são definidos no ambiente do servidor (ALFRED_MODEL e ALFRED_DAILY_LIMIT); a escolha por conta ainda não existe.</p>
         </Section>
 
         <Section id="biblioteca" title="Biblioteca">
@@ -97,7 +109,11 @@ export function SettingsPanel({ email }: { email: string | null }) {
         </Section>
 
         <Section id="privacidade" title="Privacidade e segurança">
-          <p className="m-0 text-[14px] leading-relaxed text-fg-muted">Enquanto o Alfred não está conectado a um modelo de IA, nenhuma mensagem é enviada nem guardada.</p>
+          <p className="m-0 text-[14px] leading-relaxed text-fg-muted">
+            {chat.available
+              ? 'Suas mensagens são guardadas na sua conta (só você as vê) e enviadas à OpenAI para gerar cada resposta. O CPF e os dados de compradores da trakfy não são enviados: só vai o que você escreve na conversa.'
+              : 'Enquanto o Alfred não está conectado a um modelo de IA, nenhuma mensagem é enviada nem guardada.'}
+          </p>
           <ul className="m-0 flex list-none flex-col gap-2 p-0 text-[13.5px]">
             <li><Link href="/privacidade" className="text-brand underline underline-offset-2 hover:text-brand-hover">Política de privacidade</Link></li>
             <li><Link href="/termos" className="text-brand underline underline-offset-2 hover:text-brand-hover">Termos de uso</Link></li>

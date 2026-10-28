@@ -99,10 +99,8 @@ export interface Project {
   createdAt: string;
 }
 
-/** O que o backend já oferece. Cada recurso só é habilitado na interface quando o seu valor for `true`. */
+/** O que o backend já oferece (chat e conversas têm estado próprio: `chatStatus` em config.ts). Cada recurso só é habilitado na interface quando o seu valor for `true`. */
 export interface AlfredCapabilities {
-  chat: boolean;
-  conversations: boolean;
   attachments: boolean;
   documents: boolean;
   knowledge: boolean;

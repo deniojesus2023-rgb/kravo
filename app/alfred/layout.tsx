@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { deleteConversationAction, renameConversationAction } from '@/app/alfred/actions';
 import { AlfredShell } from '@/components/alfred/AlfredShell';
-import { capabilities, listConversations } from '@/lib/alfred/data';
-import { createClient } from '@/lib/supabase/server';
+import { getAlfredSession } from '@/lib/alfred/session';
+import { listConversations } from '@/lib/alfred/store';
 import './alfred.css';
 
 export const metadata: Metadata = {
@@ -12,14 +13,17 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { themeColor: '#10141B', colorScheme: 'dark' };
 
+// A resposta do modelo pode levar dezenas de segundos.
+export const maxDuration = 60;
+
 export default async function AlfredLayout({ children }: { children: ReactNode }) {
-  const supabase = await createClient();
-  const claims = supabase ? (await supabase.auth.getClaims()).data?.claims : null;
-  const email = typeof claims?.email === 'string' ? claims.email : null;
-  const conversations = capabilities.conversations ? await listConversations() : [];
+  const { supabase, userId, email, status } = await getAlfredSession();
+  // Histórico real do usuário logado. Falha de leitura não derruba a tela: a sidebar só fica sem histórico.
+  const conversations = supabase && userId ? await listConversations(supabase).catch(() => []) : [];
+  const canManage = Boolean(supabase && userId);
 
   return (
-    <AlfredShell sidebar={{ email, conversations, nowIso: new Date().toISOString() }} aiConnected={capabilities.chat}>
+    <AlfredShell sidebar={{ email, conversations, nowIso: new Date().toISOString(), onRename: canManage ? renameConversationAction : undefined, onDelete: canManage ? deleteConversationAction : undefined }} aiConnected={status.available}>
       {children}
     </AlfredShell>
   );
